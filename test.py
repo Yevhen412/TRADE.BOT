@@ -1,11 +1,10 @@
 import asyncio
-import os
 import aiohttp
+import os
 from trade_simulator import TradeSimulator
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip().lstrip('=')
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
-BOT_ENABLED = True
 
 simulator = TradeSimulator()
 
@@ -14,22 +13,23 @@ async def send_telegram_message(text: str):
         print("❌ Переменные окружения не заданы!")
         return
 
-    # 🔧 Убедимся, что переменные без лишних символов
-    token = BOT_TOKEN.strip()
-    chat_id = CHAT_ID.strip()
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
+    payload = {
+        "chat_id": CHAT_ID,
+        "text": text,
+        "parse_mode": "HTML"
+    }
 
-    # ✅ Отладочный вывод
-    print(f"[DEBUG] BOT_TOKEN: '{token}'")
-    print(f"[DEBUG] CHAT_ID: '{chat_id}'")
-    print(f"[DEBUG] URL: {url}")
+    # 🔍 Отладочный вывод
+    print(f"[DEBUG] BOT_TOKEN: '{BOT_TOKEN}'")
+    print(f"[DEBUG] CHAT_ID: '{CHAT_ID}'")
+    print(f"[DEBUG] URL: '{url}'")
 
     async with aiohttp.ClientSession() as session:
         async with session.post(url, data=payload) as response:
-            print("✅ Ответ Telegram:", await response.text())
+            print("📩 Ответ Telegram:", await response.text())
 
-# ⬇️ Это добавь в самый конец
+
 if __name__ == "__main__":
     print("🚀 Запуск бота...")
-    asyncio.run(send_telegram_message("🤖 Бот успешно запущен!"))
+    asyncio.run(send_telegram_message("✅ Бот успешно запущен!"))
