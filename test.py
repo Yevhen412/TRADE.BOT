@@ -17,7 +17,7 @@ async def send_telegram_message(text: str):
     # 🔧 Убедимся, что переменные без лишних символов
     token = BOT_TOKEN.strip()
     chat_id = CHAT_ID.strip()
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text, "parse_mode": "HTML"}
 
     # ✅ Отладочный вывод
