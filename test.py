@@ -1,4 +1,3 @@
-
 import asyncio
 import os
 import aiohttp
@@ -17,48 +16,10 @@ async def send_telegram_message(text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
     async with aiohttp.ClientSession() as session:
-        await session.post(url, data=payload)
+        async with session.post(url, data=payload) as response:
+            print("✅ Ответ Telegram:", await response.text())
 
-async def handle_trade_event(event):
-    global bot_active
-    if not bot_active:
-        return
-    signal = simulator.process(event)
-    if signal:
-        result_msg = simulator.simulate_trade(signal)
-        if result_msg:
-            await send_telegram_message(result_msg)
-
-async def telegram_control_loop():
-    global bot_active
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUpdates"
-    offset = None
-    while True:
-        try:
-            async with aiohttp.ClientSession() as session:
-                params = {"timeout": 10}
-                if offset:
-                    params["offset"] = offset
-                async with session.get(url, params=params) as resp:
-                    data = await resp.json()
-                    for update in data.get("result", []):
-                        offset = update["update_id"] + 1
-                        message = update.get("message", {}).get("text", "")
-                        if message == "/stop":
-                            bot_active = False
-                            await send_telegram_message("⏹ Бот остановлен.")
-                        elif message == "/start":
-                            bot_active = True
-                            await send_telegram_message("▶️ Бот запущен.")
-        except Exception as e:
-            print(f"Ошибка контроля Telegram: {e}")
-        await asyncio.sleep(3)
-
-async def main():
-    await send_telegram_message("✅ Бот запущен.")
-    await asyncio.gather(
-        telegram_control_loop(),
-    )
-
+# ⬇️ Это добавь в самый конец
 if __name__ == "__main__":
-    asyncio.run(main())
+    print("🚀 Запуск бота...")
+    asyncio.run(send_telegram_message("🤖 Бот успешно запущен!"))
