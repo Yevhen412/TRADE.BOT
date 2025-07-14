@@ -6,7 +6,7 @@ from trade_simulator import TradeSimulator
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-bot_enabled = True
+BOT_ENABLED = True
 
 simulator = TradeSimulator()
 
