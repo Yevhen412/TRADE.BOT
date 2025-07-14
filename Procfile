@@ -1,1 +1,1 @@
-web: python test_telegram.py
+web: python test.py
