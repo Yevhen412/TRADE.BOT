@@ -1,1 +1,1 @@
-python trade_simulator.py
+python test.py
