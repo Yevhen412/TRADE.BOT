@@ -19,7 +19,7 @@ async def main():
     asyncio.create_task(send_hourly_report())
 
     async for event in ws.listen():
-        if not await bot_should_run():
+        if not bot_should_run():
             continue
 
         signal = simulator.process(event)
