@@ -3,6 +3,8 @@ import aiohttp
 import os
 from trade_simulator import TradeSimulator
 
+print("test.py точно запущен")
+
 # 🚀 Отладка переменных окружения при загрузке
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
