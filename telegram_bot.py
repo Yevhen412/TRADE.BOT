@@ -2,8 +2,8 @@ import os
 import aiohttp
 from aiohttp import web
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
 BOT_ENABLED = True  # Флаг состояния
 
 print("🔍 BOT_TOKEN:", BOT_TOKEN)
