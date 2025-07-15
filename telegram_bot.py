@@ -8,9 +8,11 @@ BOT_ENABLED = True  # Флаг состояния
 
 async def notify_telegram(message):
     if not BOT_TOKEN or not CHAT_ID:
-        print("❌ Переменные окружения не заданы!")
-        return
-
+    print("❌ Переменные окружения не заданы!")
+    print(f"🔍 DEBUG BOT_TOKEN: {BOT_TOKEN}")
+    print(f"🔍 DEBUG CHAT_ID: {CHAT_ID}")
+    return
+        
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
         "chat_id": CHAT_ID,
