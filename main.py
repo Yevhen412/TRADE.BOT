@@ -55,7 +55,6 @@ async def subscribe_to_ws():
                     print("❌ Ошибка WebSocket:", msg)
                     break
 
-# 🔁 Вечный цикл
 async def run_forever():
     while True:
         try:
@@ -64,5 +63,16 @@ async def run_forever():
             print("🔁 Перезапуск WebSocket через 5 сек:", e)
             await asyncio.sleep(5)
 
+async def keep_alive():
+    while True:
+        print("🕓 Пульс... бот активен")
+        await asyncio.sleep(60)
+
+async def main():
+    await asyncio.gather(
+        run_forever(),
+        keep_alive()
+    )
+
 if __name__ == "__main__":
-    asyncio.run(run_forever())
+    asyncio.run(main())
