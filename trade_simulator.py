@@ -22,7 +22,8 @@ class TradeSimulator:
 
             self.last_prices[symbol] = (price, timestamp)
 
-            # Проверка корреляции
+            print(f"[DEBUG] Получен тик: {symbol} → {price}")
+
             return self.check_correlation()
         except Exception as e:
             print("Ошибка в process:", e)
@@ -52,7 +53,7 @@ class TradeSimulator:
                 continue
 
             diff = abs(base_price - follower_price) / base_price
-            if diff > 0.003:  # 0.3%
+            if diff > 0.003:  # > 0.3%
                 self.in_trade = True
                 self.last_trade_time = now
 
@@ -60,18 +61,23 @@ class TradeSimulator:
                 entry = follower_price
                 exit_price = entry * (1.003 if side == "LONG" else 0.997)
 
-                return {
+                signal = {
                     "symbol": follower,
                     "entry_price": round(entry, 4),
                     "exit_price": round(exit_price, 4),
                     "side": side,
                     "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 }
+
+                print(f"[DEBUG] Сигнал создан: {signal}")
+                return signal
         return None
 
     def simulate_trade(self, signal):
         if not signal:
             return None
+
+        print(f"⚙️ Симуляция сделки: {signal}")  # ← отладка
 
         entry = signal["entry_price"]
         exit = signal["exit_price"]
@@ -86,6 +92,10 @@ class TradeSimulator:
 
         self.in_trade = False
         self.trade_log.append((symbol, time_str, side, entry, exit, net))
+
+        if net <= 0:
+            print("🔕 Сделка неуспешна, Telegram не уведомляется.")
+            return None  # ← не отправляем в Telegram
 
         return (
             f"📊 <b>Trade Executed</b>\n"
