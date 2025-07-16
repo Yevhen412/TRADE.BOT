@@ -6,10 +6,22 @@ from telegram_notifier import send_telegram_message
 
 simulator = TradeSimulator()
 
-async def connect():
+# 🔁 Пульс раз в 10 минут
+async def heartbeat():
+    while True:
+        try:
+            await send_telegram_message("🤖 Бот активен и слушает рынок...")
+            print("💓 Heartbeat отправлен")
+        except Exception as e:
+            print("⚠️ Ошибка heartbeat:", e)
+        await asyncio.sleep(600)  # 10 минут
+
+# 📡 Основной WebSocket-процесс
+async def run_bot():
     uri = "wss://stream.bybit.com/v5/public/spot"
     while True:
         try:
+            print("🔌 Подключаюсь к WebSocket...")
             async with websockets.connect(uri) as websocket:
                 await websocket.send(json.dumps({
                     "op": "subscribe",
@@ -39,20 +51,19 @@ async def connect():
                                 await send_telegram_message(report)
 
                     except websockets.ConnectionClosed:
-                        print("🔁 WebSocket отключён. Повторное подключение через 5 секунд...")
-                        break  # выйдет из вложенного while и переподключится
+                        print("🔁 WebSocket отключён. Переподключение...")
+                        break
                     except Exception as e:
-                        print("⚠️ Ошибка в обработке данных:", e)
+                        print("⚠️ Ошибка в обработке сообщения:", e)
                         await asyncio.sleep(3)
-
         except Exception as e:
-            print("❌ Ошибка при подключении к WebSocket:", e)
+            print("❌ Ошибка подключения к WebSocket:", e)
             await asyncio.sleep(10)
 
+# 🧠 Запуск
 if __name__ == "__main__":
-    try:
-        asyncio.run(connect())
-    except KeyboardInterrupt:
-        print("🛑 Остановка по Ctrl+C")
-    except Exception as e:
-        print("🔥 Критическая ошибка:", e)
+    loop = asyncio.get_event_loop()
+    loop.create_task(run_bot())
+    loop.create_task(heartbeat())  # 💓 Добавляем пульс!
+    print("🚀 Бот запущен. Ожидание событий...")
+    loop.run_forever()
