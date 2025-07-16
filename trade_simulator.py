@@ -21,10 +21,10 @@ class TradeSimulator:
             timestamp = time.time()
 
             self.last_prices[symbol] = (price, timestamp)
-            print(f"[DEBUG] Тик: {symbol} → {price}")
+            print(f"[DEBUG] Получен тик: {symbol} → {price}")
             return self.check_correlation()
         except Exception as e:
-            print("❌ Ошибка в process:", e)
+            print("Ошибка в process:", e)
             return None
 
     def check_correlation(self):
@@ -67,7 +67,7 @@ class TradeSimulator:
                     "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 }
 
-                print(f"[DEBUG] Сигнал: {signal}")
+                print(f"[DEBUG] Сигнал создан: {signal}")
                 return signal
         return None
 
@@ -91,7 +91,7 @@ class TradeSimulator:
         self.trade_log.append((symbol, time_str, side, entry, exit, net))
 
         if net <= 0:
-            print("🔕 Сделка неуспешна")
+            print("🔕 Сделка неуспешна, Telegram не уведомляется.")
             return None
 
         return (
