@@ -6,64 +6,44 @@ from telegram_notifier import send_telegram_message
 
 simulator = TradeSimulator()
 
-# 🔁 Пульс раз в 10 минут
-async def heartbeat():
-    while True:
-        try:
-            await send_telegram_message("🤖 Бот активен и слушает рынок...")
-            print("💓 Heartbeat отправлен")
-        except Exception as e:
-            print("⚠️ Ошибка heartbeat:", e)
-        await asyncio.sleep(600)  # 10 минут
-
-# 📡 Основной WebSocket-процесс
-async def run_bot():
+async def connect():
     uri = "wss://stream.bybit.com/v5/public/spot"
+    pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT", "ADAUSDT"]
+    topics = [f"publicTrade.{pair}" for pair in pairs]
+
     while True:
         try:
-            print("🔌 Подключаюсь к WebSocket...")
+            print("🔌 Подключаемся к WebSocket...")
             async with websockets.connect(uri) as websocket:
                 await websocket.send(json.dumps({
                     "op": "subscribe",
-                    "args": [
-                        "publicTrade.BTCUSDT",
-                        "publicTrade.ETHUSDT",
-                        "publicTrade.XRPUSDT",
-                        "publicTrade.SOLUSDT",
-                        "publicTrade.ADAUSDT",
-                        "publicTrade.AVAXUSDT"
-                    ]
+                    "args": topics
                 }))
-                print("✅ WebSocket подписка завершена")
+                print("✅ Подписка завершена")
 
                 while True:
-                    try:
-                        response = await websocket.recv()
-                        message = json.loads(response)
+                    response = await websocket.recv()
+                    message = json.loads(response)
 
-                        if message.get("type") == "snapshot":
-                            continue
+                    if message.get("type") == "snapshot":
+                        continue
 
-                        signal = simulator.process(message)
-                        if signal:
-                            report = simulator.simulate_trade(signal)
-                            if report:
-                                await send_telegram_message(report)
+                    signal = simulator.process(message)
 
-                    except websockets.ConnectionClosed:
-                        print("🔁 WebSocket отключён. Переподключение...")
-                        break
-                    except Exception as e:
-                        print("⚠️ Ошибка в обработке сообщения:", e)
-                        await asyncio.sleep(3)
+                    if signal:
+                        print("📈 Получен сигнал, симулируем сделку...")
+                        report = simulator.simulate_trade(signal)
+
+                        if report:
+                            print("📬 Отправляем сообщение в Telegram...")
+                            await send_telegram_message(report)
+                        else:
+                            print("📭 Сделка без прибыли, Telegram не уведомляется.")
         except Exception as e:
-            print("❌ Ошибка подключения к WebSocket:", e)
-            await asyncio.sleep(10)
+            print(f"❌ Ошибка WebSocket: {e}")
+            print("⏳ Повторное подключение через 5 секунд...")
+            await asyncio.sleep(5)
 
-# 🧠 Запуск
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.create_task(run_bot())
-    loop.create_task(heartbeat())  # 💓 Добавляем пульс!
-    print("🚀 Бот запущен. Ожидание событий...")
-    loop.run_forever()
+    print("🚀 main.py запущен")
+    asyncio.run(connect())
