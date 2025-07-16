@@ -1,78 +1,44 @@
 import asyncio
-import aiohttp
-import os
 import json
+import websockets
 from trade_simulator import TradeSimulator
-
-print("🚀 main.py точно запущен")
-
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+from telegram_notifier import send_telegram_message
 
 simulator = TradeSimulator()
 
-async def send_telegram_message(text: str):
-    if not BOT_TOKEN or not CHAT_ID:
-        print("❌ Переменные окружения не заданы!")
-        return
+async def connect():
+    uri = "wss://stream.bybit.com/v5/public/spot"
+    async with websockets.connect(uri) as websocket:
+        await websocket.send(json.dumps({
+            "op": "subscribe",
+            "args": [
+                "publicTrade.BTCUSDT",
+                "publicTrade.ETHUSDT",
+                "publicTrade.XRPUSDT",
+                "publicTrade.SOLUSDT",
+                "publicTrade.ADAUSDT",
+                "publicTrade.AVAXUSDT"
+            ]
+        }))
+        print("✅ WebSocket подписка завершена")
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": text, "parse_mode": "HTML"}
+        while True:
+            try:
+                response = await websocket.recv()
+                message = json.loads(response)
 
-    try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=payload) as resp:
-                print("📬 Telegram:", await resp.text())
-    except Exception as e:
-        print("❌ Ошибка Telegram:", e)
+                if message.get("type") == "snapshot":
+                    continue
 
-async def subscribe_to_ws():
-    url = "wss://stream.bybit.com/v5/public/spot"
-    pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT", "ADAUSDT"]
-    topics = [f"publicTrade.{pair}" for pair in pairs]
+                signal = simulator.process(message)
+                if signal:
+                    report = simulator.simulate_trade(signal)
+                    if report:
+                        await send_telegram_message(report)
 
-    async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(url) as ws:
-            print("🌐 Подключено к WebSocket")
-
-            await ws.send_json({
-                "op": "subscribe",
-                "args": topics
-            })
-
-            async for msg in ws:
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    try:
-                        event = json.loads(msg.data)
-                        signal = simulator.process(event)
-                        if signal:
-                            message = simulator.simulate_trade(signal)
-                            if message:
-                                await send_telegram_message(message)
-                    except Exception as e:
-                        print("❌ Ошибка обработки сообщения:", e)
-                elif msg.type == aiohttp.WSMsgType.ERROR:
-                    print("❌ Ошибка WebSocket:", msg)
-                    break
-
-async def run_forever():
-    while True:
-        try:
-            await subscribe_to_ws()
-        except Exception as e:
-            print("🔁 Перезапуск WebSocket через 5 сек:", e)
-            await asyncio.sleep(5)
-
-async def keep_alive():
-    while True:
-        print("🕓 Пульс... бот активен")
-        await asyncio.sleep(60)
-
-async def main():
-    await asyncio.gather(
-        run_forever(),
-        keep_alive()
-    )
+            except Exception as e:
+                print("Ошибка в WebSocket loop:", e)
+                await asyncio.sleep(5)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(connect())
