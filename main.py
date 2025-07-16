@@ -3,7 +3,8 @@ import json
 import websockets
 from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
-from server import run_server  # aiohttp-сервер
+from server import create_app  # изменим run_server на create_app
+from aiohttp import web
 
 simulator = TradeSimulator()
 
@@ -42,9 +43,29 @@ async def connect():
                 print("🚨 Ошибка в WebSocket loop:", e)
                 await asyncio.sleep(5)
 
-if __name__ == "__main__":
+async def heartbeat():
+    while True:
+        await send_telegram_message("💓 Я жив")
+        await asyncio.sleep(600)  # каждые 10 минут
+
+async def main():
     print("🚀 main.py запущен")
-    loop = asyncio.get_event_loop()
-    loop.create_task(connect())
-    loop.run_in_executor(None, run_server)  # сервер работает параллельно
-    loop.run_forever()
+
+    # Параллельные задачи
+    tasks = [
+        connect(),
+        heartbeat()
+    ]
+
+    # Запускаем aiohttp-сервер
+    app = create_app()
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, port=8000)
+    await site.start()
+
+    # Параллельно выполняем задачи
+    await asyncio.gather(*tasks)
+
+if __name__ == "__main__":
+    asyncio.run(main())
