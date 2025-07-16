@@ -7,8 +7,8 @@ from telegram_notifier import send_telegram_message
 simulator = TradeSimulator()
 
 async def run_ws_session():
-    uri = "wss://stream.bybit.com/v5/public/spot"
-    async with websockets.connect(uri) as websocket:
+    url = "wss://stream.bybit.com/v5/public/spot"
+    async with websockets.connect(url) as websocket:
         await websocket.send(json.dumps({
             "op": "subscribe",
             "args": [
