@@ -55,26 +55,14 @@ async def subscribe_to_ws():
                     print("❌ Ошибка WebSocket:", msg)
                     break
 
-# 🔁 Вечный цикл с авто-переподключением
-async def main():
-    while True:
-        try:
-            await subscribe_to_ws()
-        except Exception as e:
-            print("❌ Общая ошибка в WebSocket-сессии:", e)
-        print("🔁 Переподключение через 5 секунд...")
-        await asyncio.sleep(5)
-
+# 🔁 Вечный цикл
 async def run_forever():
     while True:
         try:
             await subscribe_to_ws()
         except Exception as e:
-            print("🔁 Ошибка WebSocket. Перезапуск через 5 секунд:", e)
+            print("🔁 Перезапуск WebSocket через 5 сек:", e)
             await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(run_forever())
-
-if __name__ == "__main__":
-    asyncio.run(main())
