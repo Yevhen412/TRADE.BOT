@@ -4,8 +4,11 @@ import os
 import json
 from trade_simulator import TradeSimulator
 
+print("🚀 main.py точно запущен")
+
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
 CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "").strip()
+
 simulator = TradeSimulator()
 
 async def send_telegram_message(text: str):
@@ -28,40 +31,39 @@ async def subscribe_to_ws():
     pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT", "ADAUSDT"]
     topics = [f"publicTrade.{pair}" for pair in pairs]
 
-    print("🟡 Подключение к WebSocket Bybit...")
-
     async with aiohttp.ClientSession() as session:
-        try:
-            async with session.ws_connect(url) as ws:
-                print("🌐 Подключено к WebSocket")
+        async with session.ws_connect(url) as ws:
+            print("🌐 Подключено к WebSocket")
 
-                await ws.send_json({
-                    "op": "subscribe",
-                    "args": topics
-                })
-                print(f"✅ Подписка на пары: {topics}")
+            await ws.send_json({
+                "op": "subscribe",
+                "args": topics
+            })
 
-                async for msg in ws:
-                    if msg.type == aiohttp.WSMsgType.TEXT:
-                        try:
-                            event = json.loads(msg.data)
-                            signal = simulator.process(event)
-                            if signal:
-                                message = simulator.simulate_trade(signal)
-                                if message:
-                                    await send_telegram_message(message)
-                        except Exception as e:
-                            print("❌ Ошибка обработки сообщения:", e)
-                    elif msg.type == aiohttp.WSMsgType.ERROR:
-                        print("❌ Ошибка WebSocket:", msg)
-                        break
-        except Exception as e:
-            print("❌ Ошибка подключения к WebSocket:", e)
+            async for msg in ws:
+                if msg.type == aiohttp.WSMsgType.TEXT:
+                    try:
+                        event = json.loads(msg.data)
+                        signal = simulator.process(event)
+                        if signal:
+                            message = simulator.simulate_trade(signal)
+                            if message:
+                                await send_telegram_message(message)
+                    except Exception as e:
+                        print("❌ Ошибка обработки сообщения:", e)
+                elif msg.type == aiohttp.WSMsgType.ERROR:
+                    print("❌ Ошибка WebSocket:", msg)
+                    break
 
+# 🔁 Вечный цикл с авто-переподключением
 async def main():
-    print("🚀 main.py точно запущен")
-    await send_telegram_message("✅ Бот запущен и пытается подключиться к WebSocket...")
-    await subscribe_to_ws()
+    while True:
+        try:
+            await subscribe_to_ws()
+        except Exception as e:
+            print("❌ Общая ошибка в WebSocket-сессии:", e)
+        print("🔁 Переподключение через 5 секунд...")
+        await asyncio.sleep(5)
 
 if __name__ == "__main__":
     asyncio.run(main())
