@@ -65,5 +65,16 @@ async def main():
         print("🔁 Переподключение через 5 секунд...")
         await asyncio.sleep(5)
 
+async def run_forever():
+    while True:
+        try:
+            await subscribe_to_ws()
+        except Exception as e:
+            print("🔁 Ошибка WebSocket. Перезапуск через 5 секунд:", e)
+            await asyncio.sleep(5)
+
+if __name__ == "__main__":
+    asyncio.run(run_forever())
+
 if __name__ == "__main__":
     asyncio.run(main())
