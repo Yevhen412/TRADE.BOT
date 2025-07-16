@@ -1,15 +1,16 @@
 import asyncio
 import json
-import os
 import websockets
 from aiohttp import web
+
 from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
+from server import create_app  # Твой server.py уже содержит эту функцию
 
 simulator = TradeSimulator()
 
-# ✅ WebSocket подписка на Bybit
-async def connect():
+# Фоновая задача WebSocket
+async def websocket_loop():
     uri = "wss://stream.bybit.com/v5/public/spot"
     async with websockets.connect(uri) as websocket:
         await websocket.send(json.dumps({
@@ -23,45 +24,49 @@ async def connect():
                 "publicTrade.AVAXUSDT"
             ]
         }))
-        print("✅ WebSocket подписка завершена")
+        print("✅ Подписка завершена")
 
         while True:
             try:
-                message = json.loads(await websocket.recv())
+                response = await websocket.recv()
+                message = json.loads(response)
+
+                if message.get("type") == "snapshot":
+                    continue
+
                 signal = simulator.process(message)
                 if signal:
                     report = simulator.simulate_trade(signal)
                     if report:
                         await send_telegram_message(report)
+
             except Exception as e:
-                print("❌ Ошибка WebSocket:", e)
+                print("❌ Ошибка в WebSocket loop:", e)
                 await asyncio.sleep(5)
 
-# ✅ Периодическое сообщение "Я жив"
-async def send_heartbeat():
+# Задача «Я жив» каждые 10 минут
+async def heartbeat_loop():
     while True:
-        await send_telegram_message("✅ Я жив. Бот активен.")
-        await asyncio.sleep(600)
+        await send_telegram_message("🤖 Я жив! Бот работает.")
+        await asyncio.sleep(600)  # 10 минут
 
-# ✅ HTTP-сервер для Railway ("/" → OK)
-async def handle(request):
-    return web.Response(text="✅ Bot is running")
+# Подключаем задачи при старте
+async def start_background_tasks(app):
+    app['ws_task'] = asyncio.create_task(websocket_loop())
+    app['heartbeat_task'] = asyncio.create_task(heartbeat_loop())
 
-async def start_server():
-    app = web.Application()
-    app.router.add_get("/", handle)
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, port=8000)
-    await site.start()
-    print("🌐 HTTP-сервер запущен на порту 8000")
+# Чистим задачи при остановке
+async def cleanup_background_tasks(app):
+    app['ws_task'].cancel()
+    app['heartbeat_task'].cancel()
+    await asyncio.gather(app['ws_task'], app['heartbeat_task'], return_exceptions=True)
 
-# ✅ Главная точка запуска
-async def main():
-    print("🚀 main.py запущен")
-    await start_server()
-    asyncio.create_task(send_heartbeat())
-    await connect()  # главный бесконечный процесс — блокирует завершение
+# Объединённое приложение
+def create_combined_app():
+    app = create_app()
+    app.on_startup.append(start_background_tasks)
+    app.on_cleanup.append(cleanup_background_tasks)
+    return app
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    web.run_app(create_combined_app(), port=8000)
