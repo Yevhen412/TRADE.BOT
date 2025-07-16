@@ -5,7 +5,7 @@ class TradeSimulator:
     def __init__(self):
         self.in_trade = False
         self.last_trade_time = 0
-        self.delay_between_trades = 2  # секунды
+        self.delay_between_trades = 2
         self.last_prices = {}
         self.trade_log = []
 
@@ -21,9 +21,7 @@ class TradeSimulator:
             timestamp = time.time()
 
             self.last_prices[symbol] = (price, timestamp)
-
             print(f"[DEBUG] Получен тик: {symbol} → {price}")
-
             return self.check_correlation()
         except Exception as e:
             print("Ошибка в process:", e)
@@ -53,7 +51,7 @@ class TradeSimulator:
                 continue
 
             diff = abs(base_price - follower_price) / base_price
-            if diff > 0.003:  # > 0.3%
+            if diff > 0.003:
                 self.in_trade = True
                 self.last_trade_time = now
 
@@ -77,8 +75,7 @@ class TradeSimulator:
         if not signal:
             return None
 
-        print(f"⚙️ Симуляция сделки: {signal}")  # ← отладка
-
+        print(f"⚙️ Симуляция сделки: {signal}")
         entry = signal["entry_price"]
         exit = signal["exit_price"]
         side = signal["side"]
@@ -95,7 +92,7 @@ class TradeSimulator:
 
         if net <= 0:
             print("🔕 Сделка неуспешна, Telegram не уведомляется.")
-            return None  # ← не отправляем в Telegram
+            return None
 
         return (
             f"📊 <b>Trade Executed</b>\n"
@@ -107,17 +104,3 @@ class TradeSimulator:
             f"Net: {net:.4f} USDT\n"
             f"Result: {result}"
         )
-
-    def generate_hourly_report(self):
-        if not self.trade_log:
-            return None
-
-        report = "<b>📈 Hourly Trade Summary</b>\n"
-        total_net = 0
-        for symbol, time_str, side, entry, exit, net in self.trade_log:
-            total_net += net
-            report += f"{symbol} | {side} | {entry} → {exit} | Net: {net:.4f}\n"
-        report += f"\nTotal PnL: <b>{total_net:.4f} USDT</b>"
-
-        self.trade_log.clear()
-        return report
