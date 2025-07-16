@@ -1,15 +1,15 @@
 import asyncio
 import json
+import os
 import websockets
+from aiohttp import web
 from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
-from server import create_app  # изменим run_server на create_app
-from aiohttp import web
 
 simulator = TradeSimulator()
 
+# ✅ WebSocket подписка на Bybit
 async def connect():
-    print("📡 Подключаюсь к WebSocket...")
     uri = "wss://stream.bybit.com/v5/public/spot"
     async with websockets.connect(uri) as websocket:
         await websocket.send(json.dumps({
@@ -23,49 +23,45 @@ async def connect():
                 "publicTrade.AVAXUSDT"
             ]
         }))
-        print("✅ Подписка завершена")
+        print("✅ WebSocket подписка завершена")
 
         while True:
             try:
-                response = await websocket.recv()
-                message = json.loads(response)
-
-                if message.get("type") == "snapshot":
-                    continue
-
+                message = json.loads(await websocket.recv())
                 signal = simulator.process(message)
                 if signal:
                     report = simulator.simulate_trade(signal)
                     if report:
                         await send_telegram_message(report)
-
             except Exception as e:
-                print("🚨 Ошибка в WebSocket loop:", e)
+                print("❌ Ошибка WebSocket:", e)
                 await asyncio.sleep(5)
 
-async def heartbeat():
+# ✅ Периодическое сообщение "Я жив"
+async def send_heartbeat():
     while True:
-        await send_telegram_message("💓 Я жив")
-        await asyncio.sleep(600)  # каждые 10 минут
+        await send_telegram_message("✅ Я жив. Бот активен.")
+        await asyncio.sleep(600)
 
-async def main():
-    print("🚀 main.py запущен")
+# ✅ HTTP-сервер для Railway ("/" → OK)
+async def handle(request):
+    return web.Response(text="✅ Bot is running")
 
-    # Параллельные задачи
-    tasks = [
-        connect(),
-        heartbeat()
-    ]
-
-    # Запускаем aiohttp-сервер
-    app = create_app()
+async def start_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
     runner = web.AppRunner(app)
     await runner.setup()
     site = web.TCPSite(runner, port=8000)
     await site.start()
+    print("🌐 HTTP-сервер запущен на порту 8000")
 
-    # Параллельно выполняем задачи
-    await asyncio.gather(*tasks)
+# ✅ Главная точка запуска
+async def main():
+    print("🚀 main.py запущен")
+    await start_server()
+    asyncio.create_task(send_heartbeat())
+    await connect()  # главный бесконечный процесс — блокирует завершение
 
 if __name__ == "__main__":
     asyncio.run(main())
