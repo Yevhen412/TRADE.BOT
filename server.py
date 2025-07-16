@@ -1,9 +1,12 @@
 from aiohttp import web
 
-async def handle(request):
-    return web.Response(text="✅ Bot is alive!")
+routes = web.RouteTableDef()
 
-def run_server():
+@routes.get("/")
+async def status(request):
+    return web.Response(text="✅ Bot is running")
+
+def create_app():
     app = web.Application()
-    app.router.add_get("/", handle)
-    web.run_app(app, port=8000)
+    app.add_routes(routes)
+    return app
