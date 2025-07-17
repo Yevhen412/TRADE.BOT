@@ -1,52 +1,39 @@
 import asyncio
 import json
 import websockets
+
 from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
 
 simulator = TradeSimulator()
 
-# Основной WebSocket-цикл
+
+# Основной WebSocket-обработчик
 async def connect():
-    uri = "wss://stream.bybit.com/v5/public/spot"
+    uri = "wss://stream.bybit.com/v5/public/spot"  # пример WebSocket-ссылки
     try:
         async with websockets.connect(uri) as websocket:
-            await websocket.send(json.dumps({
+            subscribe_msg = {
                 "op": "subscribe",
-                "args": [
-                    "publicTrade.BTCUSDT",
-                    "publicTrade.ETHUSDT",
-                    "publicTrade.XRPUSDT",
-                    "publicTrade.SOLUSDT",
-                    "publicTrade.ADAUSDT",
-                    "publicTrade.AVAXUSDT"
-                ]
-            }))
-            print("✅ WebSocket подписка завершена")
-
-            start_time = asyncio.get_event_loop().time()
+                "args": ["publicTrade.BTCUSDT"]
+            }
+            await websocket.send(json.dumps(subscribe_msg))
+            await send_telegram_message("✅ WebSocket подключен и подписан")
 
             while True:
-                # Завершить цикл через 120 секунд (2 минуты)
-                if asyncio.get_event_loop().time() - start_time > 120:
-                    print("⏹ Время работы истекло. Останавливаем connect().")
-                    break
-
                 try:
-                    response = await websocket.recv()
-                    message = json.loads(response)
+                    message = await websocket.recv()
+                    data = json.loads(message)
 
-                    if message.get("type") == "snapshot":
-                        continue
+                    # здесь можно добавить обработку данных
+                    await simulator.handle_message(data)
 
-                    signal = simulator.process(message)
-                    if signal:
-                        report = simulator.simulate_trade(signal)
-                        if report:
-                            await send_telegram_message(report)
+                except Exception as inner_error:
+                    await send_telegram_message(f"⚠️ Ошибка обработки сообщения: {inner_error}")
+    except Exception as outer_error:
+        await send_telegram_message(f"❌ Ошибка подключения: {outer_error}")
 
-                except Exception as e:
-                    print("❌ Ошибка в WebSocket loop:", e)
-                    await asyncio.sleep(5)
-    except Exception as outer_e:
-        print("❌ Ошибка подключения к WebSocket:", outer_e)
+
+# Защита от автозапуска при импорте
+if __name__ == "__main__":
+    asyncio.run(connect())
