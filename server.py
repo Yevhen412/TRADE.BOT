@@ -1,5 +1,5 @@
 import os
-#import asyncio
+import asyncio
 from fastapi import FastAPI
 #from telegram_notifier import send_telegram_message
 #from client import connect
@@ -10,8 +10,9 @@ app = FastAPI()
 
 @app.get("/start")
 async def handle_start():
-    # 🔄 Запуск стратегии на 2 минуты
-    return {"message":"Only testing now"}
+
+    asyncio.create_task(asyncio.sleep(1))
+    return {"message":"Asyncio работает"}
     #asyncio.create_task(connect())
 
     # 🌐 Получаем домен проекта или задаём вручную
