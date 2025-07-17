@@ -12,6 +12,7 @@ app = FastAPI()
 async def handle_start():
 
     asyncio.create_task(asyncio.sleep(1))
+    
     return {"message":"Asyncio работает"}
     #asyncio.create_task(connect())
 
