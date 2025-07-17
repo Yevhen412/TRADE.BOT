@@ -1,4 +1,4 @@
-#import os
+import os
 #import asyncio
 from fastapi import FastAPI
 #from telegram_notifier import send_telegram_message
