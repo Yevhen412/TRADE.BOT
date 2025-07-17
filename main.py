@@ -25,9 +25,6 @@ async def connect():
                     message = await websocket.recv()
                     data = json.loads(message)
 
-                    # здесь можно добавить обработку данных
-                    await simulator.handle_message(data)
-
                 except Exception as inner_error:
                     await send_telegram_message(f"⚠️ Ошибка обработки сообщения: {inner_error}")
     except Exception as outer_error:
