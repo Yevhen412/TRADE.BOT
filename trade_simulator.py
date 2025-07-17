@@ -5,7 +5,7 @@ class TradeSimulator:
     def __init__(self):
         self.in_trade = False
         self.last_trade_time = 0
-        self.delay_between_trades = 2
+        self.delay_between_trades = 2  # секунды
         self.last_prices = {}
         self.trade_log = []
 
@@ -24,7 +24,7 @@ class TradeSimulator:
             print(f"[DEBUG] Получен тик: {symbol} → {price}")
             return self.check_correlation()
         except Exception as e:
-            print("Ошибка в process:", e)
+            print("❌ Ошибка в process:", e)
             return None
 
     def check_correlation(self):
@@ -51,7 +51,7 @@ class TradeSimulator:
                 continue
 
             diff = abs(base_price - follower_price) / base_price
-            if diff > 0.003:
+            if diff > 0.003:  # > 0.3%
                 self.in_trade = True
                 self.last_trade_time = now
 
