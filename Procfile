@@ -1,1 +1,1 @@
-worker: python test_aiohttp.py
+worker: python main.py
