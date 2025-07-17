@@ -1,32 +1,31 @@
-from aiohttp import web
+
 import asyncio
-import os
-from main import main  # Импортируем функцию, запускающую бота
+import time
+from fastapi import FastAPI
+from main import main  # Импортируем main из main.py
 
-RUNNING = False
-LAST_RUN = 0
+app = FastAPI()
+last_run = 0  # Время последнего запуска
 
-async def handle_start(request):
-    global RUNNING, LAST_RUN
+@app.get("/")
+def root():
+    return {"status": "Бот работает. Используйте /start для запуска."}
 
-    now = asyncio.get_event_loop().time()
-    if RUNNING or (now - LAST_RUN) < 180:  # не раньше чем через 3 минуты
-        return web.Response(text="⏳ Уже запущено или слишком рано.")
+@app.get("/start")
+async def start_bot():
+    global last_run
+    now = time.time()
 
-    RUNNING = True
-    LAST_RUN = now
-    asyncio.create_task(run_bot())
-    return web.Response(text="🚀 Бот запущен на 2 минуты.")
+    if last_run and now - last_run < 180:  # 3 минуты = 180 секунд
+        return {"status": "⏳ Подождите 3 минуты перед следующим запуском."}
 
-async def run_bot():
-    global RUNNING
-    try:
-        await main()
-    finally:
-        RUNNING = False
+    last_run = now
 
-app = web.Application()
-app.router.add_get('/start', handle_start)
+    # Запускаем бота на 2 минуты
+    async def run_with_timeout():
+        task = asyncio.create_task(main())
+        await asyncio.sleep(120)
+        task.cancel()
 
-if __name__ == '__main__':
-    web.run_app(app, port=int(os.environ.get("PORT", 8080)))
+    asyncio.create_task(run_with_timeout())
+    return {"status": "✅ Бот запущен на 2 минуты. Ждите завершения."}
