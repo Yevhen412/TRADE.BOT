@@ -4,6 +4,8 @@ from fastapi import FastAPI
 from telegram_notifier import send_telegram_message
 from client import connect
 
+print("✅ server.py импортирован")
+
 app = FastAPI()
 
 @app.get("/start")
