@@ -6,9 +6,9 @@ from telegram_notifier import send_telegram_message
 
 simulator = TradeSimulator()
 
-async def connect():  # Функция экспортируется в telegram_server
-    url = "wss://stream.bybit.com/v5/public/spot"
-    async with websockets.connect(url) as websocket:
+async def main():
+    uri = "wss://stream.bybit.com/v5/public/spot"
+    async with websockets.connect(uri) as websocket:
         await websocket.send(json.dumps({
             "op": "subscribe",
             "args": [
@@ -20,9 +20,15 @@ async def connect():  # Функция экспортируется в telegram_
                 "publicTrade.AVAXUSDT"
             ]
         }))
-        print("✅ Подписка завершена")
+        print("✅ WebSocket подписка завершена")
+
+        start_time = asyncio.get_event_loop().time()
 
         while True:
+            if asyncio.get_event_loop().time() - start_time > 120:
+                print("⏹️ Время работы истекло (2 минуты), останавливаемся.")
+                break
+
             try:
                 response = await websocket.recv()
                 message = json.loads(response)
@@ -37,7 +43,5 @@ async def connect():  # Функция экспортируется в telegram_
                         await send_telegram_message(report)
 
             except Exception as e:
-                print("❌ Ошибка в WebSocket loop:", e)
+                print("Ошибка в WebSocket loop:", e)
                 await asyncio.sleep(5)
-
-# Убираем запуск по умолчанию — теперь бот запускается через команду /start
