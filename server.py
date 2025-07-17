@@ -10,6 +10,7 @@ app = FastAPI()
 
 @app.get("/start")
 async def handle_start():
+    print("🔄 /start endpoint вызван")
 
     asyncio.create_task(asyncio.sleep(1))
     
