@@ -1,31 +1,24 @@
-from fastapi import FastAPI
+import os
 import asyncio
-import logging
-
-from main import connect  # Импортируем WebSocket-цикл
+from fastapi import FastAPI
+from telegram_notifier import send_telegram_message
+from client import connect
 
 app = FastAPI()
-logging.basicConfig(level=logging.INFO)
 
-
-@app.on_event("startup")
-async def startup_event():
-    logging.info("⏳ WebSocket запустится через 2 секунды...")
-    await asyncio.sleep(2)
-
-    # Запускаем connect в фоне
+@app.get("/start")
+async def handle_start():
+    # 🔄 Запуск стратегии на 2 минуты
     asyncio.create_task(connect())
 
-    # Планируем остановку через 2 минуты
-    asyncio.create_task(stop_server_after_delay())
+    # 🌐 Получаем домен проекта или задаём вручную
+    domain = os.getenv("RAILWAY_PUBLIC_DOMAIN", "yourproject.up.railway.app")
+    restart_link = f"https://{domain}/start"
 
+    # 📬 Уведомление в Telegram
+    await send_telegram_message(
+        f"✅ <b>Процесс запущен на 2 минуты.</b>\n"
+        f"🔁 Для нового запуска: <a href=\"{restart_link}\">{restart_link}</a>"
+    )
 
-async def stop_server_after_delay():
-    await asyncio.sleep(120)
-    logging.info("🛑 Время вышло. Завершаем работу.")
-    raise KeyboardInterrupt("Автоматическое завершение через 2 минуты.")
-
-
-@app.get("/")
-async def root():
-    return {"message": "Бот работает. WebSocket активен."}
+    return {"message": "Strategy started"}
