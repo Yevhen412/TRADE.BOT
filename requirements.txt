@@ -3,3 +3,5 @@ websockets
 python-dotenv
 requests
 aiogram
+fastapi
+uvicorn
