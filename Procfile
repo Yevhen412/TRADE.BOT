@@ -1,1 +1,1 @@
-worker: python main.py
+web: python3 telegram_server.py
