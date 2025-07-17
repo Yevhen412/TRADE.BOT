@@ -1,53 +1,55 @@
 import asyncio
-import os
-from aiohttp import web
-from datetime import datetime, timedelta
+import logging
+import aiohttp
+from aiogram import Bot, Dispatcher, types
+from aiogram.utils import executor
 from main import connect  # Импортируем WebSocket-цикл
-from telegram_notifier import send_telegram_message
 
-BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
-SECRET_TOKEN = os.getenv("TELEGRAM_SECRET", "my_secret").strip()  # секрет можно задать для безопасности
+import os
+
+# Получаем токен и chat_id из переменных окружения
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+
+bot = Bot(token=BOT_TOKEN, parse_mode="HTML")
+dp = Dispatcher(bot)
+
+# Логгирование (по желанию)
+logging.basicConfig(level=logging.INFO)
 
 running = False
-last_start_time = datetime.min
+last_run_time = 0
 
-routes = web.RouteTableDef()
+@dp.message_handler(commands=['start'])
+async def start_command(message: types.Message):
+    global running, last_run_time
 
-@routes.post(f"/{SECRET_TOKEN}/start")
-async def handle_start(request):
-    global running, last_start_time
+    if str(message.chat.id) != CHAT_ID:
+        await message.reply("⛔️ У вас нет доступа.")
+        return
 
-    now = datetime.utcnow()
-
+    now = asyncio.get_event_loop().time()
     if running:
-        return web.Response(text="⏳ Бот уже работает. Подожди окончания цикла.")
+        await message.answer("⚠️ Бот уже работает.")
+        return
 
-    if now - last_start_time < timedelta(minutes=3):
-        remaining = 180 - int((now - last_start_time).total_seconds())
-        return web.Response(text=f"⛔ Повторный запуск возможен через {remaining} сек.")
+    if now - last_run_time < 180:  # 3 минуты
+        await message.answer("⏳ Подождите минимум 3 минуты между запусками.")
+        return
 
     running = True
-    last_start_time = now
+    last_run_time = now
+    await message.answer("▶️ Бот запущен на 2 минуты...")
 
-    asyncio.create_task(run_with_timeout())
-
-    await send_telegram_message("▶️ Стратегия запущена вручную. Работа в течение 2 минут.")
-    return web.Response(text="✅ Запущено на 2 минуты.")
-
-async def run_with_timeout():
-    global running
     try:
-        task = asyncio.create_task(connect())
-        await asyncio.sleep(120)
-        task.cancel()
-        await send_telegram_message("⏹️ Время истекло. Бот приостановлен. Повторный запуск через 3 минуты.")
+        await asyncio.wait_for(connect(), timeout=120)
+    except asyncio.TimeoutError:
+        await message.answer("⏹️ Время вышло. Бот остановлен.")
     except Exception as e:
-        print("❌ Ошибка run_with_timeout:", e)
+        await message.answer(f"❌ Ошибка: {e}")
     finally:
         running = False
 
-app = web.Application()
-app.add_routes(routes)
-
 if __name__ == "__main__":
-    web.run_app(app, port=8080)
+    print("🟡 Ожидание команды /start...")
+    executor.start_polling(dp, skip_updates=True)
