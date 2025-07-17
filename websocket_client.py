@@ -10,6 +10,7 @@ last_msg_time = time.time()
 INACTIVITY_TIMEOUT = 600  # 10 минут
 
 async def connect_websocket():
+    print("🚀 connect_websocket() вызвана")  # <-- Добавлено для логов
     global last_msg_time
     url = "wss://stream.bybit.com/v5/public/spot"
     pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT", "ADAUSDT"]
@@ -52,5 +53,5 @@ async def watchdog(ws):
             await ws.close()
             return
 
-if __name__ == "__main__":
-    asyncio.run(connect_websocket())
+# ⬇️ Добавляем алиас для server.py
+connect = connect_websocket
