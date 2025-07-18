@@ -1,23 +1,25 @@
 import os
 import aiohttp
 
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("CHAT_ID")
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "").strip()
+CHAT_ID = os.getenv("CHAT_ID", "").strip()
 
 async def notify_telegram(message: str):
-    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
-        print("❌ Telegram credentials not set")
+    if not BOT_TOKEN or not CHAT_ID:
+        print("❌ Переменные окружения не заданы!")
         return
 
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message
+        "chat_id": CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML"
     }
 
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, data=payload) as resp:
-            if resp.status != 200:
-                print(f"❌ Ошибка Telegram API: {resp.status}")
-            else:
-                print("✅ Отправлено в Telegram")
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.post(url, data=payload) as response:
+                resp_text = await response.text()
+                print(f"[Telegram] Ответ: {resp_text}")
+    except Exception as e:
+        print("❌ Ошибка при отправке в Telegram:", e)
