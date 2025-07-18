@@ -7,7 +7,7 @@ from telegram_notifier import notify_telegram
 
 simulator = TradeSimulator()
 last_msg_time = time.time()
-INACTIVITY_TIMEOUT = 120  # 2 минуты
+INACTIVITY_TIMEOUT = 600  # 10 минут
 
 async def connect_websocket():
     global last_msg_time
@@ -18,7 +18,13 @@ async def connect_websocket():
     async with aiohttp.ClientSession() as session:
         async with session.ws_connect(url) as ws:
             print("🌐 Подключено к WebSocket")
-            await ws.send_json({"op": "subscribe", "args": topics})
+
+            await ws.send_json({
+                "op": "subscribe",
+                "args": topics
+            })
+
+            # Стартуем watchdog
             asyncio.create_task(watchdog(ws))
 
             async for msg in ws:
@@ -41,7 +47,11 @@ async def watchdog(ws):
     while True:
         await asyncio.sleep(10)
         if time.time() - last_msg_time > INACTIVITY_TIMEOUT:
-            print("⏹️  2 минуты истекли, останавливаем WebSocket")
-            await notify_telegram("🕒 2 минуты истекли. Чтобы перезапустить: https://<your_domain>/start")
+            print("⚠️ Нет сообщений от WebSocket, перезапускаем...")
+            await notify_telegram("⚠️ WebSocket завис — перезапускаю соединение...")
             await ws.close()
             return
+
+# 🟢 ЭТО ВАЖНО: добавляем run_session() для запуска из server.py
+async def run_session():
+    await connect_websocket()
