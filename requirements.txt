@@ -2,6 +2,6 @@ aiohttp
 websockets
 python-dotenv
 requests
-aiogram
+aiogram==3.4.1
 fastapi
 uvicorn
