@@ -1,1 +1,1 @@
-command = "python server.py"
+python server.py
