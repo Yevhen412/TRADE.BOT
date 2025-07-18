@@ -7,23 +7,23 @@ app = FastAPI()
 is_running = False
 
 @app.get("/")
-def home():
-    return {"status": "Bot is online. Use /resume to start session"}
+def root():
+    return {"message": "Bot is online. Use /resume to start session."}
 
 @app.get("/resume")
-async def resume_session():
+async def resume():
     global is_running
     if is_running:
-        return {"status": "Already running"}
-
+        return {"message": "Already running."}
+    
     is_running = True
 
-    async def session():
+    async def background():
         global is_running
         try:
             await run_session()
         finally:
             is_running = False
 
-    asyncio.create_task(session())
-    return {"status": "Session started"}
+    asyncio.create_task(background())
+    return {"message": "Session started."}
