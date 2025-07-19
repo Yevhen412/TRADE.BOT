@@ -40,10 +40,14 @@ def get_spot_balance():
 
     response = requests.get(url, headers=headers, params=params)
 
-    print("Raw response text:", response.text)
-    print("Status code:", response.status_code)
+    print("🔵 Raw response text (SPOT):", response.text)
+    print("🔵 Status code (SPOT):", response.status_code)
 
-    return response.json()
+    try:
+        return response.json()
+    except Exception as e:
+        print("❌ Ошибка парсинга JSON (SPOT):", str(e))
+        return {"error": response.text}
 
 def get_futures_balance():
     endpoint = "/v5/account/wallet-balance"
@@ -51,7 +55,7 @@ def get_futures_balance():
     timestamp = get_timestamp()
 
     params = {
-        "accountType": "UNIFIED",  # для USDT-фьючерсов (если Unified Account)
+        "accountType": "UNIFIED",  # Unified account (для фьючерсов USDT)
         "timestamp": timestamp,
     }
 
@@ -65,12 +69,16 @@ def get_futures_balance():
 
     response = requests.get(url, headers=headers, params=params)
 
-    print("Raw response text:", response.text)
-    print("Status code:", response.status_code)
+    print("🔵 Raw response text (FUTURES):", response.text)
+    print("🔵 Status code (FUTURES):", response.status_code)
 
-    return response.json()
+    try:
+        return response.json()
+    except Exception as e:
+        print("❌ Ошибка парсинга JSON (FUTURES):", str(e))
+        return {"error": response.text}
 
-# Запускаем
+# Запускаем, если файл выполняется напрямую
 if __name__ == "__main__":
     print("🔍 Проверка баланса SPOT:")
     response = get_spot_balance()
