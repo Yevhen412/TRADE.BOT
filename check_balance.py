@@ -29,7 +29,7 @@ def get_spot_balance():
     timestamp = get_timestamp()
 
     params = {
-        "accountType": "SPOT",
+        "accountType": "UNIFIED",
         "timestamp": timestamp,
     }
 
