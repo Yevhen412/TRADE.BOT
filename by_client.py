@@ -1,8 +1,8 @@
 import os
 from pybit.unified_trading import HTTP
 
-api_key = os.getenv("BYBIT_API_KEY")
-api_secret = os.getenv("BYBIT_API_SECRET")
+api_key = os.getenv("API_KEY")
+api_secret = os.getenv("API_SECRET")
 
 session = HTTP(
     api_key=api_key,
