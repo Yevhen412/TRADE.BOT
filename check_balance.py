@@ -1,17 +1,22 @@
-from bybit import Bybit
+from pybit.unified_trading import HTTP
 import os
+from dotenv import load_dotenv
 
-api_key = os.getenv("API_KEY")
-api_secret = os.getenv("API_SECRET")
+load_dotenv()
 
-client = Bybit(api_key=api_key, api_secret=api_secret)
+# Загружаем ключи из переменных окружения
+api_key = os.getenv("BYBIT_API_KEY")
+api_secret = os.getenv("BYBIT_API_SECRET")
 
-def get_wallet_balance():
-    try:
-        response = client.get_wallet_balance(accountType="UNIFIED")
-        print("✅ Баланс:", response)
-    except Exception as e:
-        print("❌ Ошибка:", str(e))
+# Инициализируем подключение к Bybit V5
+session = HTTP(
+    api_key=api_key,
+    api_secret=api_secret
+)
 
-if __name__ == "__main__":
-    get_wallet_balance()
+# Получаем баланс по аккаунту
+response = session.get_wallet_balance(accountType="UNIFIED")
+
+# Выводим результат
+print("💰 Баланс:")
+print(response)
