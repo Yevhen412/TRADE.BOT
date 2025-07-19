@@ -9,6 +9,9 @@ API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 BASE_URL = "https://api.bybit.com"  # Убедись, что это не testnet
 
+print("🔐 API_KEY (первые 6 символов):", API_KEY[:6])
+print("🔐 API_SECRET (первые 6 символов):", API_SECRET[:6])
+
 def get_timestamp():
     return str(int(time.time() * 1000))
 
