@@ -1,66 +1,46 @@
 import os
-import requests
 import time
-import hmac
 import hashlib
+import hmac
+import requests
 
-# Получаем ключи из переменных окружения
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
-BASE_URL = "https://api.bybit.com"
 
-def get_timestamp():
-    return str(int(time.time() * 1000))
+def get_unified_balance():
+    print("🔍 Проверка баланса FUTURES (Unified):")
 
-def sign(params: dict) -> str:
-    ordered_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-    print(f"🔐 Ordered params: {ordered_params}")  # Отладка
+    url = "https://api.bybit.com/v5/account/wallet-balance"
+    timestamp = str(int(time.time() * 1000))
+    recv_window = "5000"
+    account_type = "UNIFIED"
+
+    query_string = f"accountType={account_type}&timestamp={timestamp}"
+
     signature = hmac.new(
         bytes(API_SECRET, "utf-8"),
-        bytes(ordered_params, "utf-8"),
+        bytes(query_string, "utf-8"),
         hashlib.sha256
     ).hexdigest()
-    print(f"🔑 Signature: {signature}")  # Отладка
-    return signature
-
-def get_balance(account_type: str):
-    endpoint = "/v5/account/wallet-balance"
-    url = BASE_URL + endpoint
-    timestamp = get_timestamp()
-
-    params = {
-        "accountType": account_type,
-        "timestamp": timestamp,
-    }
-
-    signature = sign(params)
 
     headers = {
         "X-BYBIT-API-KEY": API_KEY,
         "X-BYBIT-SIGN": signature,
         "X-BYBIT-TIMESTAMP": timestamp,
+        "X-BYBIT-RECV-WINDOW": recv_window,
+        "Content-Type": "application/json"
     }
 
-    print(f"📡 URL: {url}")
-    print(f"📤 Headers: {headers}")
-    print(f"📤 Params: {params}")
+    response = requests.get(url, params={"accountType": account_type, "timestamp": timestamp}, headers=headers)
 
-    response = requests.get(url, headers=headers, params=params)
-
-    print(f"📥 Status code: {response.status_code}")
-    print(f"📥 Raw response: {response.text}")
+    print("📦 Status code:", response.status_code)
 
     try:
-        return response.json()
+        data = response.json()
+        print("📬 Ответ от API:", data)
     except Exception as e:
-        print("⚠️ JSON parse error:", e)
-        return {"error": response.text}
+        print("❌ Ошибка парсинга JSON:", str(e))
+        print("📦 Raw response:", response.text)
 
 if __name__ == "__main__":
-    print("🔎 Проверка баланса SPOT:")
-    spot_result = get_balance("SPOT")
-    print("📦 Ответ от API SPOT:", spot_result)
-
-    print("\n🔎 Проверка баланса FUTURES (Unified):")
-    futures_result = get_balance("UNIFIED")
-    print("📦 Ответ от API FUTURES:", futures_result)
+    get_unified_balance()
