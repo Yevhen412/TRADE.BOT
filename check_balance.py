@@ -39,8 +39,11 @@ def get_spot_balance():
     }
 
     response = requests.get(url, headers=headers, params=params)
-    data = response.json()
-    return data
+
+print("Raw response text:", response.text)
+print("Status code:", response.status_code)
+
+return response.json()
 
 def get_futures_balance():
     endpoint = "/v5/account/wallet-balance"
@@ -61,15 +64,18 @@ def get_futures_balance():
     }
 
     response = requests.get(url, headers=headers, params=params)
-    data = response.json()
-    return data
+
+print("Raw response text:", response.text)
+print("Status code:", response.status_code)
+
+return response.json()
 
 # Запускаем
 if __name__ == "__main__":
     print("🔍 Проверка баланса SPOT:")
-    spot = get_spot_balance()
-    print(spot)
+    response = get_spot_balance()
+print("🔧 Ответ от API SPOT:", response)
 
     print("\n🔍 Проверка баланса FUTURES (Unified):")
-    fut = get_futures_balance()
-    print(fut)
+    response = get_future_balance()
+print("🔧 Ответ от API FUTURE:", response)
