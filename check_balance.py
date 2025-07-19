@@ -7,6 +7,9 @@ import requests
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
+print("✅ API_KEY:", repr(API_KEY))
+print("✅ API_SECRET:", repr(API_SECRET))
+
 def get_unified_balance():
     print("🔍 Проверка баланса FUTURES (Unified):")
 
@@ -32,6 +35,9 @@ def get_unified_balance():
         bytes(ordered_params, "utf-8"),
         hashlib.sha256
     ).hexdigest()
+
+    print("🧩 Строка для подписи:", ordered_params)
+    print("🔑 Сгенерированная подпись:", signature)
 
     # Заголовки
     headers = {
