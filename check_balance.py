@@ -1,33 +1,32 @@
 import os
 import time
-import hashlib
 import hmac
+import hashlib
 import requests
 
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
-def get_unified_balance():
-    print("🔍 Проверка баланса FUTURES (Unified):")
+def get_unified_balance_post():
+    print("🚀 Отправка POST-запроса в Bybit V5...")
 
     url = "https://api.bybit.com/v5/account/wallet-balance"
     timestamp = str(int(time.time() * 1000))
     recv_window = "5000"
     account_type = "UNIFIED"
 
-    # Параметры запроса
-    query_string = f"accountType={account_type}"
+    body = {
+        "accountType": account_type
+    }
 
-    # Строка для подписи: timestamp + API_KEY + recvWindow + queryString
-    message = timestamp + API_KEY + recv_window + query_string
+    # Строка запроса для подписи
+    query_string = f"accountType={account_type}&timestamp={timestamp}&recvWindow={recv_window}"
+
     signature = hmac.new(
         bytes(API_SECRET, "utf-8"),
-        bytes(message, "utf-8"),
+        bytes(query_string, "utf-8"),
         hashlib.sha256
     ).hexdigest()
-
-    print("🧾 Строка для подписи:", message)
-    print("🔐 Сгенерированная подпись:", signature)
 
     headers = {
         "X-BYBIT-API-KEY": API_KEY,
@@ -37,10 +36,14 @@ def get_unified_balance():
         "Content-Type": "application/json"
     }
 
-    # params без timestamp
-    response = requests.get(url, params={"accountType": account_type}, headers=headers)
+    print("🧾 Headers:", headers)
+    print("🛠️ Body:", body)
+    print("🔐 Signature:", signature)
+
+    response = requests.post(url, headers=headers, json=body)
 
     print("📦 Status code:", response.status_code)
+
     try:
         data = response.json()
         print("📬 Ответ от API:", data)
@@ -49,4 +52,4 @@ def get_unified_balance():
         print("📦 Raw response:", response.text)
 
 if __name__ == "__main__":
-    get_unified_balance()
+    get_unified_balance_post()
