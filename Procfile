@@ -1,1 +1,1 @@
-worker: python check_balance.py
+worker: python bybit_balance_test.py
