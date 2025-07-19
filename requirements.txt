@@ -5,4 +5,4 @@ requests
 aiogram==3.4.1
 fastapi
 uvicorn
-bybit-unified==1.0.12
+bybit-unified==1.0.6
