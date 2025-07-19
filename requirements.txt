@@ -5,5 +5,4 @@ requests
 aiogram==3.4.1
 fastapi
 uvicorn
-bybit_v5
-
+git+https://github.com/bybit-exchange/bybit-api-sdk-python.git
