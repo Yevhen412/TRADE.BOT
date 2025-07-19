@@ -5,5 +5,4 @@ requests
 aiogram==3.4.1
 fastapi
 uvicorn
-git+https://github.com/bybit-exchange/bybit-api-sdk-python.git
-#force rebuild
+bybit-unified==1.0.12
