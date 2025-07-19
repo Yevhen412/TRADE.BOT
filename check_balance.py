@@ -7,24 +7,18 @@ import requests
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
-def get_unified_balance_post():
-    print("🚀 Отправка POST-запроса в Bybit V5...")
-
+def get_wallet_balance():
     url = "https://api.bybit.com/v5/account/wallet-balance"
     timestamp = str(int(time.time() * 1000))
     recv_window = "5000"
     account_type = "UNIFIED"
 
-    body = {
-        "accountType": account_type
-    }
-
-    # Строка запроса для подписи
-    query_string = f"accountType={account_type}&timestamp={timestamp}&recvWindow={recv_window}"
+    # 🚨 Порядок параметров ДОЛЖЕН быть строго как в строке подписи
+    query_string = f"accountType={account_type}&recvWindow={recv_window}&timestamp={timestamp}"
 
     signature = hmac.new(
-        bytes(API_SECRET, "utf-8"),
-        bytes(query_string, "utf-8"),
+        API_SECRET.encode("utf-8"),
+        query_string.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
 
@@ -36,20 +30,26 @@ def get_unified_balance_post():
         "Content-Type": "application/json"
     }
 
-    print("🧾 Headers:", headers)
-    print("🛠️ Body:", body)
-    print("🔐 Signature:", signature)
+    # 🟡 params ДОЛЖЕН быть идентичен query_string
+    params = {
+        "accountType": account_type,
+        "recvWindow": recv_window,
+        "timestamp": timestamp
+    }
 
-    response = requests.get(url, headers=headers, params=body)
+    print("🔐 Строка подписи:", query_string)
+    print("🔏 Подпись:", signature)
+    print("📤 Заголовки:", headers)
+    print("📩 Параметры:", params)
 
-    print("📦 Status code:", response.status_code)
+    response = requests.get(url, headers=headers, params=params)
+    print("📦 Статус:", response.status_code)
 
     try:
-        data = response.json()
-        print("📬 Ответ от API:", data)
+        print("📬 Ответ:", response.json())
     except Exception as e:
-        print("❌ Ошибка парсинга JSON:", str(e))
-        print("📦 Raw response:", response.text)
+        print("❌ Ошибка JSON:", str(e))
+        print("📄 Raw:", response.text)
 
 if __name__ == "__main__":
-    get_unified_balance_post()
+    get_wallet_balance()
