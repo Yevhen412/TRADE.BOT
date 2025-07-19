@@ -40,10 +40,10 @@ def get_spot_balance():
 
     response = requests.get(url, headers=headers, params=params)
 
-print("Raw response text:", response.text)
-print("Status code:", response.status_code)
+    print("Raw response text:", response.text)
+    print("Status code:", response.status_code)
 
-return response.json()
+    return response.json()
 
 def get_futures_balance():
     endpoint = "/v5/account/wallet-balance"
@@ -65,10 +65,10 @@ def get_futures_balance():
 
     response = requests.get(url, headers=headers, params=params)
 
-print("Raw response text:", response.text)
-print("Status code:", response.status_code)
+    print("Raw response text:", response.text)
+    print("Status code:", response.status_code)
 
-return response.json()
+    return response.json()
 
 # Запускаем
 if __name__ == "__main__":
