@@ -17,7 +17,7 @@ def get_timestamp():
 
 def sign(params: dict) -> str:
     ordered_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-    return hmac.new(
+    signature = hmac.new(
         bytes(API_SECRET, "utf-8"),
         bytes(ordered_params, "utf-8"),
         hashlib.sha256,
