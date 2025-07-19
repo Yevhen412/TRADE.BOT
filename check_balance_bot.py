@@ -5,8 +5,8 @@ from pybit.unified_trading import HTTP
 # 🔐 Переменные окружения
 TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 TELEGRAM_CHAT_ID = os.getenv("CHAT_ID")
-BYBIT_API_KEY = os.getenv("API_KEY")
-BYBIT_API_SECRET = os.getenv("API_SECRET")
+api_key = os.getenv("API_KEY")
+api_secret = os.getenv("API_SECRET")
 
 # 🤖 Telegram бот
 bot = telebot.TeleBot(TELEGRAM_TOKEN)
