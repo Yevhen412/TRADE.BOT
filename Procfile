@@ -1,1 +1,1 @@
-worker: python check_balance_manual.py
+worker: python check_balance.py
