@@ -15,19 +15,20 @@ def get_unified_balance():
     recv_window = "5000"
     account_type = "UNIFIED"
 
-    # Строка параметров
-    ordered_params = f"accountType={account_type}&recvWindow={recv_window}&timestamp={timestamp}"
-    print("🧩 Строка для подписи:", ordered_params)
+    # Параметры запроса
+    query_string = f"accountType={account_type}"
 
-    # Подпись
+    # Строка для подписи: timestamp + API_KEY + recvWindow + queryString
+    message = timestamp + API_KEY + recv_window + query_string
     signature = hmac.new(
         bytes(API_SECRET, "utf-8"),
-        bytes(ordered_params, "utf-8"),
+        bytes(message, "utf-8"),
         hashlib.sha256
     ).hexdigest()
+
+    print("🧾 Строка для подписи:", message)
     print("🔐 Сгенерированная подпись:", signature)
 
-    # Заголовки
     headers = {
         "X-BYBIT-API-KEY": API_KEY,
         "X-BYBIT-SIGN": signature,
@@ -35,20 +36,11 @@ def get_unified_balance():
         "X-BYBIT-RECV-WINDOW": recv_window,
         "Content-Type": "application/json"
     }
-    print("📨 Headers:", headers)
 
-    # Параметры запроса (должны совпадать со строкой для подписи!)
-    params = {
-        "accountType": account_type,
-        "recvWindow": recv_window,
-        "timestamp": timestamp
-    }
-
-    # Запрос
-    response = requests.get(url, headers=headers, params=params)
+    # params без timestamp
+    response = requests.get(url, params={"accountType": account_type}, headers=headers)
 
     print("📦 Status code:", response.status_code)
-
     try:
         data = response.json()
         print("📬 Ответ от API:", data)
