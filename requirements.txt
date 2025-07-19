@@ -5,5 +5,5 @@ requests
 aiogram==3.4.1
 fastapi
 uvicorn
-pybit==3.2.5
+pybit==2.7.0
 
