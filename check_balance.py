@@ -15,14 +15,25 @@ def get_unified_balance():
     recv_window = "5000"
     account_type = "UNIFIED"
 
-    query_string = f"accountType={account_type}&timestamp={timestamp}"
+    # Все параметры, которые пойдут в подпись и в запрос
+    params = {
+        "accountType": account_type,
+        "timestamp": timestamp,
+        "recvWindow": recv_window
+    }
 
+    # Строго по алфавиту
+    ordered_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
+    print("🔐 Ordered params:", ordered_params)
+
+    # Подпись
     signature = hmac.new(
         bytes(API_SECRET, "utf-8"),
-        bytes(query_string, "utf-8"),
+        bytes(ordered_params, "utf-8"),
         hashlib.sha256
     ).hexdigest()
 
+    # Заголовки
     headers = {
         "X-BYBIT-API-KEY": API_KEY,
         "X-BYBIT-SIGN": signature,
@@ -31,7 +42,9 @@ def get_unified_balance():
         "Content-Type": "application/json"
     }
 
-    response = requests.get(url, params={"accountType": account_type, "timestamp": timestamp}, headers=headers)
+    print("📡 Headers:", headers)
+
+    response = requests.get(url, headers=headers, params=params)
 
     print("📦 Status code:", response.status_code)
 
