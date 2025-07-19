@@ -74,8 +74,8 @@ return response.json()
 if __name__ == "__main__":
     print("🔍 Проверка баланса SPOT:")
     response = get_spot_balance()
-print("🔧 Ответ от API SPOT:", response)
+    print("🔧 Ответ от API SPOT:", response)
 
     print("\n🔍 Проверка баланса FUTURES (Unified):")
-    response = get_future_balance()
-print("🔧 Ответ от API FUTURE:", response)
+    response = get_futures_balance()
+    print("🔧 Ответ от API FUTURES:", response)
