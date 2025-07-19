@@ -40,7 +40,7 @@ def get_unified_balance_post():
     print("🛠️ Body:", body)
     print("🔐 Signature:", signature)
 
-    response = requests.post(url, headers=headers, json=body)
+    response = requests.get(url, headers=headers, params=body)
 
     print("📦 Status code:", response.status_code)
 
