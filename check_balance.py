@@ -7,9 +7,6 @@ import requests
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
-print("✅ API_KEY:", repr(API_KEY))
-print("✅ API_SECRET:", repr(API_SECRET))
-
 def get_unified_balance():
     print("🔍 Проверка баланса FUTURES (Unified):")
 
@@ -18,16 +15,9 @@ def get_unified_balance():
     recv_window = "5000"
     account_type = "UNIFIED"
 
-    # Все параметры, которые пойдут в подпись и в запрос
-    params = {
-        "accountType": account_type,
-        "timestamp": timestamp,
-        "recvWindow": recv_window
-    }
-
-    # Строго по алфавиту
-    ordered_params = "&".join([f"{k}={v}" for k, v in sorted(params.items())])
-    print("🔐 Ordered params:", ordered_params)
+    # Строка параметров
+    ordered_params = f"accountType={account_type}&recvWindow={recv_window}&timestamp={timestamp}"
+    print("🧩 Строка для подписи:", ordered_params)
 
     # Подпись
     signature = hmac.new(
@@ -35,9 +25,7 @@ def get_unified_balance():
         bytes(ordered_params, "utf-8"),
         hashlib.sha256
     ).hexdigest()
-
-    print("🧩 Строка для подписи:", ordered_params)
-    print("🔑 Сгенерированная подпись:", signature)
+    print("🔐 Сгенерированная подпись:", signature)
 
     # Заголовки
     headers = {
@@ -47,9 +35,16 @@ def get_unified_balance():
         "X-BYBIT-RECV-WINDOW": recv_window,
         "Content-Type": "application/json"
     }
+    print("📨 Headers:", headers)
 
-    print("📡 Headers:", headers)
+    # Параметры запроса (должны совпадать со строкой для подписи!)
+    params = {
+        "accountType": account_type,
+        "recvWindow": recv_window,
+        "timestamp": timestamp
+    }
 
+    # Запрос
     response = requests.get(url, headers=headers, params=params)
 
     print("📦 Status code:", response.status_code)
