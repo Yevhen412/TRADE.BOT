@@ -1,5 +1,7 @@
 from datetime import datetime
 import time
+import os
+from pybit.unified_trading import HTTP
 
 class TradeSimulator:
     def __init__(self):
@@ -8,6 +10,11 @@ class TradeSimulator:
         self.delay_between_trades = 5  # ⏱️ Увеличено до 5 секунд
         self.last_prices = {}
         self.trade_log = []
+
+        self.session = HTTP(
+            api_key=os.getenv("API_KEY"),
+            api_secret=os.getenv("API_SECRET"),
+        )
 
     def process(self, event):
         try:
@@ -75,12 +82,39 @@ class TradeSimulator:
         if not signal:
             return None
 
-        print(f"⚙️ Исполнение сделки: {signal}")
+        print(f"⚙️ Реальное исполнение сделки: {signal}")
         entry = signal["entry_price"]
         exit = signal["exit_price"]
         side = signal["side"]
         symbol = signal["symbol"]
         time_str = signal["timestamp"]
+
+        try:
+            if side == "LONG":
+                qty = self.get_trade_quantity(symbol, entry)
+                response = self.session.place_order(
+                    category="spot",
+                    symbol=symbol,
+                    side="Buy",
+                    order_type="Market",
+                    qty=qty
+                )
+            else:  # SHORT через фьючерсы с плечом x3
+                self.session.set_leverage(category="linear", symbol=symbol, buyLeverage=3, sellLeverage=3)
+                qty = self.get_trade_quantity(symbol, entry)
+                response = self.session.place_order(
+                    category="linear",
+                    symbol=symbol,
+                    side="Sell",
+                    order_type="Market",
+                    qty=qty
+                )
+
+            print("📤 Ответ от Bybit:", response)
+        except Exception as e:
+            print(f"❌ Ошибка при размещении ордера: {e}")
+            self.in_trade = False
+            return f"❌ Ошибка размещения ордера по {symbol}: {e}"
 
         gross = abs(exit - entry)
         fee = round(gross * 0.0028, 4)
@@ -104,6 +138,11 @@ class TradeSimulator:
             f"Net: {net:.4f} USDT\n"
             f"Result: {result}"
         )
+
+    def get_trade_quantity(self, symbol, price):
+        usdt_amount = 200
+        qty = round(usdt_amount / price, 6)
+        return str(qty)
 
     def get_session_pnl_report(self):
         if not self.trade_log:
