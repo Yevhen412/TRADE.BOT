@@ -4,6 +4,7 @@ import os
 
 from websocket_client import run_session
 from telegram_notifier import send_telegram_message
+from aiohttp import web
 
 load_dotenv()
 
