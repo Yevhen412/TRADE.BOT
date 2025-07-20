@@ -1,8 +1,6 @@
-"""
 import asyncio
 import os
 from telegram.ext import Application, CommandHandler, ContextTypes
-from websocket_client import connect_ws  # Убедись, что это имя функции в websocket_client.py
 from trade_simulator import TradeSimulator
 from notifier import send_telegram_message
 
@@ -12,29 +10,28 @@ CHAT_ID = os.getenv("CHAT_ID")
 simulator = TradeSimulator()
 bot_running = False
 
-async def start_bot(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start_bot(update, context: ContextTypes.DEFAULT_TYPE):
     global bot_running
-
     if bot_running:
-        await update.message.reply_text("⏳ Бот уже работает. Подожди завершения текущей сессии.")
+        await update.message.reply_text("⛔ Бот уже работает. Дождитесь завершения.")
         return
 
     bot_running = True
-    await update.message.reply_text("🚀 Бот запущен. Сессия длится 2 минуты...")
+    await update.message.reply_text("✅ Бот запущен. Сессия длится 2 минуты...")
 
     async def session():
         try:
-            await connect_ws(simulator)
+            await connect_ws(simulator)  # убедись, что эта функция реализована
         except Exception as e:
             await update.message.reply_text(f"❌ Ошибка WebSocket: {e}")
 
-    # Запускаем сессию и ждём 2 минуты
     task = asyncio.create_task(session())
     await asyncio.sleep(120)
     task.cancel()
 
     report = simulator.get_session_pnl_report()
     await send_telegram_message(report)
+
     bot_running = False
 
 def main():
