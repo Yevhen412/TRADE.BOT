@@ -1,1 +1,1 @@
-worker: python check_balance_bot.py
+worker: python bot.py
