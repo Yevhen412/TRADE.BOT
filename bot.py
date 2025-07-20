@@ -1,6 +1,5 @@
 import asyncio
 import os
-from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from websocket_client import connect_ws  # Убедись, что это имя функции в websocket_client.py
 from trade_simulator import TradeSimulator
