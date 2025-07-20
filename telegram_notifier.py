@@ -5,24 +5,24 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 
-async def send_telegram_message(text):
-    if not TOKEN or not CHAT_ID:
-        print("❌ BOT_TOKEN или CHAT_ID не заданы.")
+async def send_telegram_message(text, chat_id):
+    if not BOT_TOKEN or not chat_id:
+        print("❌ BOT_TOKEN или chat_id не задан.")
         return
 
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {
-        "chat_id": CHAT_ID,
+        "chat_id": chat_id,
         "text": text
     }
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(url, json=payload) as resp:
-                if resp.status != 200:
-                    print("❌ Ошибка при отправке сообщения:", resp.status)
+                response = await resp.json()
+                print("✅ Ответ Telegram:", response)
+                return response
     except Exception as e:
-        print("❌ Ошибка соединения с Telegram:", e)
+        print("❌ Ошибка при отправке сообщения:", e)
