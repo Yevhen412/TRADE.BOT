@@ -9,7 +9,7 @@ from websocket_client import run_session
 from telegram_notifier import send_telegram_message
 
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = "7588221701:AAF6M-RrXXlRN5_udNG-oQ2nC2rQoqbq7os"
 WEBHOOK_SECRET = "startbot123"
 
 routes = web.RouteTableDef()
