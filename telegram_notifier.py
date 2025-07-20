@@ -1,12 +1,15 @@
+from dotenv import load_dotenv
 import os
 import asyncio
 import aiohttp
-from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(dotenv_path=".env")
 
-TOKEN = os.getenv("BOT_TOKEN")
+BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+
+if not BOT_TOKEN or not CHAT_ID:
+    print("❌ BOT_TOKEN или CHAT_ID не заданы.")
 
 async def send_telegram_message(message: str):
     if not TOKEN or not CHAT_ID:
