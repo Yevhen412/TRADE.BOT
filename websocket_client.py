@@ -35,3 +35,7 @@ async def connect_websocket(duration_seconds=120):
                 except Exception as e:
                     print("❌ Ошибка WebSocket:", e)
                     break
+
+    # По завершению сессии — отправляем отчёт о PnL
+    pnl_report = simulator.get_session_pnl_report()
+    await send_telegram_message(pnl_report)
