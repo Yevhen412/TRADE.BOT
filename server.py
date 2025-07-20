@@ -27,7 +27,7 @@ async def handle(request):
 
         if text == "/start":
             await send_telegram_message("🟢 Команда /start получена. Запускаю сессию на 120 секунд", chat_id)
-            await run_session(duration_seconds=120)
+            await run_session(duration_seconds=120, chat_id=chat_id)
 
         return web.Response(status=200, text="OK")
     except Exception as e:
