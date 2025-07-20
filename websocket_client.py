@@ -29,7 +29,7 @@ async def connect_websocket(duration_seconds=120):
                         event = json.loads(msg.data)
                         signal = simulator.process(event)
                         if signal:
-                            message = simulator.simulate_trade(signal)
+                            message = await simulator.execute_trade(signal)
                             if message:
                                 await send_telegram_message(message)
                 except Exception as e:
