@@ -3,4 +3,4 @@ python-dotenv
 requests
 aiogram==3.4.1
 pybit==5.11.0
-python-telegram-bot==13.15
+
