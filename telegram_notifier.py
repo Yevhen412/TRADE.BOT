@@ -32,6 +32,4 @@ async def send_telegram_message(text, chat_id):
         print("❌ Исключение при отправке сообщения:", str(e))
 
 
-# Пример использования (можно удалить в продакшене)
-if __name__ == "__main__":
-    asyncio.run(send_telegram_message("Тестовое сообщение", "123456789"))
+
