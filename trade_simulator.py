@@ -1,20 +1,17 @@
 from datetime import datetime
 import time
-import os
-from pybit.unified_trading import HTTP
 
 class TradeSimulator:
     def __init__(self):
         self.in_trade = False
         self.last_trade_time = 0
-        self.delay_between_trades = 5  # ⏱️ Увеличено до 5 секунд
+        self.delay_between_trades = 5  # сек между сделками
         self.last_prices = {}
         self.trade_log = []
 
-        self.session = HTTP(
-            api_key=os.getenv("API_KEY"),
-            api_secret=os.getenv("API_SECRET"),
-        )
+        # Комиссии
+        self.spot_fee = 0.0018  # 0.18%
+        self.futures_fee = 0.0010  # 0.10%
 
     def process(self, event):
         try:
@@ -64,7 +61,12 @@ class TradeSimulator:
 
                 side = "LONG" if base_price > follower_price else "SHORT"
                 entry = follower_price
-                exit_price = entry * (1.003 if side == "LONG" else 0.997)
+
+                # Расчёт комиссии
+                fee_total = self.spot_fee + self.futures_fee
+                target_profit = entry * fee_total + 0.01  # чистая прибыль минимум $0.01
+
+                exit_price = entry + target_profit if side == "LONG" else entry - target_profit
 
                 signal = {
                     "symbol": follower,
@@ -78,46 +80,18 @@ class TradeSimulator:
                 return signal
         return None
 
-    async def execute_trade(self, signal):
+    def simulate_trade(self, signal):
         if not signal:
             return None
 
-        print(f"⚙️ Реальное исполнение сделки: {signal}")
         entry = signal["entry_price"]
         exit = signal["exit_price"]
         side = signal["side"]
         symbol = signal["symbol"]
         time_str = signal["timestamp"]
 
-        try:
-            if side == "LONG":
-                qty = self.get_trade_quantity(symbol, entry)
-                response = self.session.place_order(
-                    category="spot",
-                    symbol=symbol,
-                    side="Buy",
-                    order_type="Market",
-                    qty=qty
-                )
-            else:  # SHORT через фьючерсы с плечом x3
-                self.session.set_leverage(category="linear", symbol=symbol, buyLeverage=3, sellLeverage=3)
-                qty = self.get_trade_quantity(symbol, entry)
-                response = self.session.place_order(
-                    category="linear",
-                    symbol=symbol,
-                    side="Sell",
-                    order_type="Market",
-                    qty=qty
-                )
-
-            print("📤 Ответ от Bybit:", response)
-        except Exception as e:
-            print(f"❌ Ошибка при размещении ордера: {e}")
-            self.in_trade = False
-            return f"❌ Ошибка размещения ордера по {symbol}: {e}"
-
         gross = abs(exit - entry)
-        fee = round(gross * 0.0028, 4)
+        fee = round(entry * (self.spot_fee + self.futures_fee), 4)
         net = round(gross - fee, 4)
         result = "PROFIT" if net > 0 else "LOSS"
 
@@ -132,28 +106,22 @@ class TradeSimulator:
             f"📊 <b>Trade Executed</b>\n"
             f"Pair: {symbol}\n"
             f"Time: {time_str}\n"
-            f"Side: {side}\n"
+            f"Side: {side} (Spot long / Futures short)\n"
             f"Entry: {entry}\n"
             f"Exit: {exit}\n"
             f"Net: {net:.4f} USDT\n"
             f"Result: {result}"
         )
 
-    def get_trade_quantity(self, symbol, price):
-        usdt_amount = 200
-        qty = round(usdt_amount / price, 6)
-        return str(qty)
-
-    def get_session_pnl_report(self):
+    def generate_pnl_report(self):
         if not self.trade_log:
-            return "ℹ️ За текущую сессию сделок не было."
+            return "📉 Нет завершённых сделок за сессию."
 
-        total_net = sum([trade[5] for trade in self.trade_log])
-        trades_info = "\n".join([
-            f"• {s} {side} {net:.4f} USDT" for s, _, side, _, _, net in self.trade_log
-        ])
-        return (
-            f"📈 <b>Session PnL Report</b>\n"
-            f"{trades_info}\n"
-            f"<b>Total Net:</b> {total_net:.4f} USDT"
-        )
+        total_net = sum([log[5] for log in self.trade_log])
+        count = len(self.trade_log)
+        report = f"📈 <b>Session PnL Report</b>\n"
+        report += f"Trades: {count}\n"
+        report += f"Net Profit: {round(total_net, 4)} USDT"
+
+        self.trade_log.clear()
+        return report
