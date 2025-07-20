@@ -1,1 +1,1 @@
-worker: python websocket_client.py
+worker: python bot.py
