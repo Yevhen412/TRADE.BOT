@@ -1,47 +1,33 @@
-from fastapi import FastAPI
+import aiohttp
+from aiohttp import web
 import asyncio
+import os
+import json
 from websocket_client import run_session
-import uvicorn
+from telegram_notifier import send_telegram_message
 
-app = FastAPI()
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")  # например: mysecretpath
 
-is_running = False
-last_run_time = 0
+routes = web.RouteTableDef()
 
+@routes.post(f'/{os.getenv("WEBHOOK_SECRET")}')
+async def handle(request):
+    data = await request.json()
+    message = data.get("message", {})
+    text = message.get("text", "")
+    chat_id = message.get("chat", {}).get("id")
 
-@app.get("/")
-def root():
-    return {"message": "Bot is online. Go to /resume to start."}
+    if text == "/start":
+        await send_telegram_message("🟢 Команда /start получена. Запускаю сессию...")
+        await run_session(duration_seconds=120)
+    else:
+        await send_telegram_message("🤖 Неизвестная команда.")
 
+    return web.Response(text="OK")
 
-@app.get("/resume")
-async def resume():
-    global is_running, last_run_time
-
-    if is_running:
-        return {"message": "Already running"}
-
-    # проверка паузы в 3 минуты
-    now = asyncio.get_event_loop().time()
-    if now - last_run_time < 180:
-        remaining = int(180 - (now - last_run_time))
-        return {"message": f"Подожди {remaining} секунд перед следующим запуском"}
-
-    is_running = True
-    last_run_time = now
-
-    async def background():
-        global is_running
-        try:
-            await run_session()
-        except Exception as e:
-            print(f"Ошибка в run_session: {e}")
-        await asyncio.sleep(120)  # 2 минуты работы
-        is_running = False
-        print("Сессия завершена, бот остановлен.")
-
-    asyncio.create_task(background())
-    return {"message": "Сессия запущена на 2 минуты"}
+app = web.Application()
+app.add_routes(routes)
 
 if __name__ == "__main__":
-    uvicorn.run("server:app", host="0.0.0.0", port=8000)
+    web.run_app(app, port=8000)
