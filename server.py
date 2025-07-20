@@ -7,7 +7,7 @@ from websocket_client import run_session
 from telegram_notifier import send_telegram_message
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET")  # например: mysecretpath
+WEBHOOK_SECRET = "startbot123"
 
 routes = web.RouteTableDef()
 
@@ -38,4 +38,5 @@ app = web.Application()
 app.add_routes(routes)
 
 if __name__ == "__main__":
+    print(f"🔧 Сервер слушает путь: /{WEBHOOK_SECRET}")
     web.run_app(app, port=8000)
