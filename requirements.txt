@@ -1,6 +1,5 @@
 aiohttp
 python-dotenv
 requests
-aiogram==2.25.1
 pybit==5.11.0
 
