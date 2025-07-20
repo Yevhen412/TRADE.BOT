@@ -1,5 +1,19 @@
 from datetime import datetime
 import time
+import os
+from pybit.unified_trading import HTTP
+
+# Инициализация реальных сессий Bybit
+session_spot = HTTP(
+    api_key=os.getenv("API_KEY"),
+    api_secret=os.getenv("API_SECRET")
+)
+
+session_futures = HTTP(
+    api_key=os.getenv("API_KEY"),
+    api_secret=os.getenv("API_SECRET"),
+    testnet=False
+)
 
 class TradeSimulator:
     def __init__(self):
@@ -57,12 +71,10 @@ class TradeSimulator:
 
                 side = "LONG" if base_price > follower_price else "SHORT"
                 entry = follower_price
-                exit_price = entry * (1.003 if side == "LONG" else 0.997)
 
                 signal = {
                     "symbol": follower,
                     "entry_price": round(entry, 4),
-                    "exit_price": round(exit_price, 4),
                     "side": side,
                     "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 }
@@ -71,36 +83,52 @@ class TradeSimulator:
                 return signal
         return None
 
-    def simulate_trade(self, signal):
+    async def execute_trade(self, signal):
+        from telegram_notifier import send_telegram_message  # импорт здесь, чтобы избежать циклов
+
         if not signal:
             return None
 
-        print(f"⚙️ Симуляция сделки: {signal}")
-        entry = signal["entry_price"]
-        exit = signal["exit_price"]
-        side = signal["side"]
         symbol = signal["symbol"]
+        side = signal["side"]
+        entry = signal["entry_price"]
         time_str = signal["timestamp"]
 
-        gross = abs(exit - entry)
-        fee = round(gross * 0.0028, 4)
-        net = round(gross - fee, 4)
-        result = "PROFIT" if net > 0 else "LOSS"
+        qty = 10  # Тестовая фиксированная величина (позже можно сделать динамической)
 
-        self.in_trade = False
-        self.trade_log.append((symbol, time_str, side, entry, exit, net))
+        try:
+            if side == "LONG":
+                order = session_spot.place_order(
+                    category="spot",
+                    symbol=symbol,
+                    side="Buy",
+                    order_type="Market",
+                    qty=qty
+                )
+            else:
+                order = session_futures.place_order(
+                    category="linear",
+                    symbol=symbol,
+                    side="Sell",
+                    order_type="Market",
+                    qty=qty,
+                    reduce_only=False
+                )
 
-        if net <= 0:
-            print("🔕 Сделка неуспешна, Telegram не уведомляется.")
-            return None
+            print("✅ Сделка прошла:", order)
 
-        return (
-            f"📊 <b>Trade Executed</b>\n"
-            f"Pair: {symbol}\n"
-            f"Time: {time_str}\n"
-            f"Side: {side}\n"
-            f"Entry: {entry}\n"
-            f"Exit: {exit}\n"
-            f"Net: {net:.4f} USDT\n"
-            f"Result: {result}"
-        )
+            self.in_trade = False
+
+            return (
+                f"📈 <b>Real Trade Executed</b>\n"
+                f"Pair: {symbol}\n"
+                f"Time: {time_str}\n"
+                f"Side: {side}\n"
+                f"Qty: {qty}\n"
+                f"Entry: {entry}"
+            )
+
+        except Exception as e:
+            self.in_trade = False
+            print("❌ Ошибка при торговле:", e)
+            return f"❌ Ошибка при торговле по {symbol}: {e}"
