@@ -1,4 +1,4 @@
-"""
+
 import asyncio
 import os
 from telegram.ext import Application, CommandHandler, ContextTypes
