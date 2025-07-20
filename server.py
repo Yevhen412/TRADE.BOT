@@ -2,9 +2,12 @@ import aiohttp
 from aiohttp import web
 import asyncio
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import json
 from websocket_client import run_session
 from telegram_notifier import send_telegram_message
+
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_SECRET = "startbot123"
