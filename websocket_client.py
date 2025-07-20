@@ -5,7 +5,7 @@ import time
 from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
 
-async def connect_websocket(simulator, duration_seconds=120):
+async def connect_websocket(simulator, duration_seconds=120, chat_id):
     print("🌐 Подключаюсь к WebSocket")
     url = "wss://stream.bybit.com/v5/public/spot"
     pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT", "ADAUSDT"]
@@ -29,7 +29,7 @@ async def connect_websocket(simulator, duration_seconds=120):
                         if signal:
                             message = await simulator.execute_trade(signal)
                             if message:
-                                await send_telegram_message(message)
+                                await send_telegram_message(message, chat_id)
                 except Exception as e:
                     print("❌ Ошибка WebSocket:", e)
                     break
@@ -37,9 +37,9 @@ async def connect_websocket(simulator, duration_seconds=120):
 async def run_session(duration_seconds=120):
     print("🔁 Запуск сессии на", duration_seconds, "секунд")
     simulator = TradeSimulator()  # создаём только внутри сессии
-    await send_telegram_message("🚀 Сессия началась")
-    await connect_websocket(simulator, duration_seconds)
+    await send_telegram_message("🚀 Сессия началась", chat_id)
+    await connect_websocket(simulator, duration_seconds, chat_id)
     print("Получаю финальный отчет")
     report = simulator.get_session_pnl_report()
-    await send_telegram_message(report)
+    await send_telegram_message(report, chat_id)
     print("✅ Сессия завершена")
