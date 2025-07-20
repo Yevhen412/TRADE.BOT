@@ -1,25 +1,11 @@
 from datetime import datetime
 import time
-import os
-from pybit.unified_trading import HTTP
-
-# Инициализация реальных сессий Bybit
-session_spot = HTTP(
-    api_key=os.getenv("API_KEY"),
-    api_secret=os.getenv("API_SECRET")
-)
-
-session_futures = HTTP(
-    api_key=os.getenv("API_KEY"),
-    api_secret=os.getenv("API_SECRET"),
-    testnet=False
-)
 
 class TradeSimulator:
     def __init__(self):
         self.in_trade = False
         self.last_trade_time = 0
-        self.delay_between_trades = 2  # секунды
+        self.delay_between_trades = 5  # ⏱️ Увеличено до 5 секунд
         self.last_prices = {}
         self.trade_log = []
 
@@ -65,16 +51,18 @@ class TradeSimulator:
                 continue
 
             diff = abs(base_price - follower_price) / base_price
-            if diff > 0.003:  # > 0.3%
+            if diff > 0.003:
                 self.in_trade = True
                 self.last_trade_time = now
 
                 side = "LONG" if base_price > follower_price else "SHORT"
                 entry = follower_price
+                exit_price = entry * (1.003 if side == "LONG" else 0.997)
 
                 signal = {
                     "symbol": follower,
                     "entry_price": round(entry, 4),
+                    "exit_price": round(exit_price, 4),
                     "side": side,
                     "timestamp": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
                 }
@@ -84,51 +72,49 @@ class TradeSimulator:
         return None
 
     async def execute_trade(self, signal):
-        from telegram_notifier import send_telegram_message  # импорт здесь, чтобы избежать циклов
-
         if not signal:
             return None
 
-        symbol = signal["symbol"]
-        side = signal["side"]
+        print(f"⚙️ Исполнение сделки: {signal}")
         entry = signal["entry_price"]
+        exit = signal["exit_price"]
+        side = signal["side"]
+        symbol = signal["symbol"]
         time_str = signal["timestamp"]
 
-        qty = 10  # Тестовая фиксированная величина (позже можно сделать динамической)
+        gross = abs(exit - entry)
+        fee = round(gross * 0.0028, 4)
+        net = round(gross - fee, 4)
+        result = "PROFIT" if net > 0 else "LOSS"
 
-        try:
-            if side == "LONG":
-                order = session_spot.place_order(
-                    category="spot",
-                    symbol=symbol,
-                    side="Buy",
-                    order_type="Market",
-                    qty=qty
-                )
-            else:
-                order = session_futures.place_order(
-                    category="linear",
-                    symbol=symbol,
-                    side="Sell",
-                    order_type="Market",
-                    qty=qty,
-                    reduce_only=False
-                )
+        self.in_trade = False
+        self.trade_log.append((symbol, time_str, side, entry, exit, net))
 
-            print("✅ Сделка прошла:", order)
+        if net <= 0:
+            print("🔕 Сделка неуспешна, Telegram не уведомляется.")
+            return None
 
-            self.in_trade = False
+        return (
+            f"📊 <b>Trade Executed</b>\n"
+            f"Pair: {symbol}\n"
+            f"Time: {time_str}\n"
+            f"Side: {side}\n"
+            f"Entry: {entry}\n"
+            f"Exit: {exit}\n"
+            f"Net: {net:.4f} USDT\n"
+            f"Result: {result}"
+        )
 
-            return (
-                f"📈 <b>Real Trade Executed</b>\n"
-                f"Pair: {symbol}\n"
-                f"Time: {time_str}\n"
-                f"Side: {side}\n"
-                f"Qty: {qty}\n"
-                f"Entry: {entry}"
-            )
+    def get_session_pnl_report(self):
+        if not self.trade_log:
+            return "ℹ️ За текущую сессию сделок не было."
 
-        except Exception as e:
-            self.in_trade = False
-            print("❌ Ошибка при торговле:", e)
-            return f"❌ Ошибка при торговле по {symbol}: {e}"
+        total_net = sum([trade[5] for trade in self.trade_log])
+        trades_info = "\n".join([
+            f"• {s} {side} {net:.4f} USDT" for s, _, side, _, _, net in self.trade_log
+        ])
+        return (
+            f"📈 <b>Session PnL Report</b>\n"
+            f"{trades_info}\n"
+            f"<b>Total Net:</b> {total_net:.4f} USDT"
+        )
