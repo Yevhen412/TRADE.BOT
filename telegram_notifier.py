@@ -1,19 +1,21 @@
-import aiohttp
 import os
 import asyncio
+import aiohttp
+from dotenv import load_dotenv
+
+load_dotenv()
+
+TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 
 async def send_telegram_message(message: str):
-    token = os.getenv("TELEGRAM_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
-
-    if not token or not chat_id:
-        print("❌ TELEGRAM_TOKEN или TELEGRAM_CHAT_ID не установлены.")
+    if not TOKEN or not CHAT_ID:
+        print("❌ BOT_TOKEN или CHAT_ID не заданы.")
         return
 
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {
-        "chat_id": chat_id,
+        "chat_id": CHAT_ID,
         "text": message,
         "parse_mode": "HTML"
     }
@@ -22,14 +24,6 @@ async def send_telegram_message(message: str):
         async with aiohttp.ClientSession() as session:
             async with session.post(url, data=payload) as resp:
                 if resp.status != 200:
-                    print(f"❌ Ошибка отправки сообщения в Telegram: {resp.status}")
-                    text = await resp.text()
-                    print(text)
-                else:
-                    print("✅ Сообщение отправлено в Telegram.")
+                    print("❌ Ошибка при отправке в Telegram:", await resp.text())
     except Exception as e:
-        print(f"❌ Telegram send error: {e}")
-
-# Пример ручного запуска:
-if __name__ == "__main__":
-    asyncio.run(send_telegram_message("🔔 Бот запущен и работает!"))
+        print("❌ Telegram ошибка:", e)
