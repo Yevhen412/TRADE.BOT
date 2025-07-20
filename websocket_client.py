@@ -40,6 +40,7 @@ async def run_session(duration_seconds=120):
     print("🔁 Запуск сессии на", duration_seconds, "секунд")
     await send_telegram_message("🚀 Сессия началась")
     await connect_websocket(duration_seconds)
+    print("Получаю финальный отчет")
     report = simulator.get_session_pnl_report()
     await send_telegram_message(report)
     print("✅ Сессия завершена")
