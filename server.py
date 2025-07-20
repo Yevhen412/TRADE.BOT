@@ -15,4 +15,5 @@ async def main():
     await send_telegram_message("⏹️ Сессия завершена.")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    port = int(os.getenv("PORT", 8080))
+    web.run_app(app, port=port)
