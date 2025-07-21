@@ -9,25 +9,26 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-POLLING_INTERVAL = 2  # интервал опроса в секундах
+POLLING_INTERVAL = 2
 
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 is_session_running = False
 
+
 async def get_updates(offset=None):
     params = {"timeout": 10, "offset": offset}
     try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            resp = await client.get(f"{API_URL}/getUpdates", params=params)
-            resp.raise_for_status()
-            return resp.json()
-    except httpx.HTTPStatusError as http_err:
-        print(f"❌ Ошибка в get_updates: HTTPStatusError: {http_err}")
-    except httpx.ReadTimeout as timeout_err:
-        print(f"❌ Ошибка в get_updates: ReadTimeout: {timeout_err}")
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{API_URL}/getUpdates", params=params, timeout=20)
+            response.raise_for_status()
+            return response.json()
+    except httpx.HTTPStatusError as e:
+        print(f"❌ Ошибка в get_updates: HTTPStatusError: {e}")
+    except httpx.ReadTimeout:
+        print("❌ Ошибка в get_updates: ReadTimeout")
     except Exception as e:
-        print(f"❌ Ошибка в get_updates: {type(e).__name__}: {e}")
-    return {}
+        print(f"❌ Ошибка в get_updates: {e}")
+    return {}  # Возврат пустого словаря при ошибке
 
 
 async def send_reply(chat_id, text):
@@ -37,48 +38,39 @@ async def send_reply(chat_id, text):
 async def polling_loop():
     global is_session_running
     last_update_id = None
+
     print("🤖 Бот запущен (polling)...")
 
     while True:
-        try:
-            updates = await get_updates(offset=last_update_id)
-            for update in updates.get("result", []):
-                last_update_id = update["update_id"] + 1
-                message = update.get("message", {})
-                chat_id = str(message.get("chat", {}).get("id", ""))
-                text = message.get("text", "")
-
-                if chat_id != CHAT_ID:
-                    continue
-
-                if text == "/start":
-                    if is_session_running:
-                        await send_reply(chat_id, "⏳ Уже идёт сессия...")
-                    else:
-                        is_session_running = True
-                        await send_reply(chat_id, "✅ Сессия запущена. Работаем 2 минуты...")
-                        await run_session(chat_id=chat_id, duration_seconds=120)
-                        await send_reply(chat_id, "⏹️ Сессия завершена.")
-                        is_session_running = False
-
+        updates = await get_updates(offset=last_update_id)
+        if not updates:
             await asyncio.sleep(POLLING_INTERVAL)
+            continue
 
-        except Exception as e:
-            print(f"❌ Ошибка в polling_loop: {e}")
-            await asyncio.sleep(5)
+        for update in updates.get("result", []):
+            last_update_id = update["update_id"] + 1
+            message = update.get("message", {})
+            chat_id = str(message.get("chat", {}).get("id", ""))
+            text = message.get("text", "")
+
+            if chat_id != CHAT_ID:
+                continue
+
+            if text == "/start":
+                if is_session_running:
+                    await send_reply(chat_id, "⏳ Уже идёт сессия...")
+                else:
+                    is_session_running = True
+                    await send_reply(chat_id, "✅ Сессия запущена. Работаем 2 минуты...")
+                    await run_session(chat_id=chat_id, duration_seconds=120)
+                    await send_reply(chat_id, "⏹️ Сессия завершена.")
+                    is_session_running = False
+
+        await asyncio.sleep(POLLING_INTERVAL)
 
 
 async def main():
-    try:
-        # Удаляем webhook (иначе getUpdates не сработает)
-        async with httpx.AsyncClient() as client:
-            await client.get(f"{API_URL}/deleteWebhook")
-
-        await polling_loop()
-
-    except Exception as e:
-        print(f"❌ Ошибка в main(): {type(e).__name__}: {e}")
-        await asyncio.sleep(5)
+    await polling_loop()
 
 
 if __name__ == "__main__":
