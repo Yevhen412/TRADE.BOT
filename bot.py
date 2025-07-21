@@ -66,9 +66,14 @@ async def polling_loop():
 
 async def main():
     try:
+        # Удаляем webhook (иначе getUpdates не сработает)
+        async with httpx.AsyncClient() as client:
+            await client.get(f"{API_URL}/deleteWebhook")
+
         await polling_loop()
+
     except Exception as e:
-        print(f"❌ Ошибка в main: {e}")
+        print(f"❌ Ошибка в main(): {type(e).__name__}: {e}")
         await asyncio.sleep(5)
 
 
