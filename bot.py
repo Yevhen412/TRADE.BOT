@@ -54,14 +54,12 @@ async def polling_loop():
                         is_session_running = False
 
             await asyncio.sleep(POLLING_INTERVAL)
-
-async def main():
-    try:
-        print("🤖 Бот запущен (polling)...")
-        await bot.polling()
-    except Exception as e:
-        print(f"❌ Ошибка в polling: {e}")
-        await asyncio.sleep(5)
+        except Exception as e:
+            print(f"❌ Ошибка в polling_loop: {e}")
+            await asyncio.sleep(5)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(polling_loop())
+    except Exception as e:
+        print(f"❌ Ошибка при запуске: {e}")
