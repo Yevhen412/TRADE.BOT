@@ -1,7 +1,6 @@
 import asyncio
 import os
 from dotenv import load_dotenv
-from aiogram.utils import executor
 from websocket_client import run_session
 from telegram_notifier import send_telegram_message
 
