@@ -9,7 +9,7 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-POLLING_INTERVAL = 2  # секунды между проверками Telegram
+POLLING_INTERVAL = 2  # интервал опроса в секундах
 
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 is_session_running = False
@@ -18,8 +18,12 @@ is_session_running = False
 async def get_updates(offset=None):
     params = {"timeout": 10, "offset": offset}
     async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{API_URL}/getUpdates", params=params)
-        return resp.json()
+        try:
+            response = await client.get(f"{API_URL}/getUpdates", params=params)
+            return response.json()
+        except Exception as e:
+            print(f"❌ Ошибка в get_updates: {e}")
+            return {}
 
 
 async def send_reply(chat_id, text):
@@ -29,8 +33,8 @@ async def send_reply(chat_id, text):
 async def polling_loop():
     global is_session_running
     last_update_id = None
-
     print("🤖 Бот запущен (polling)...")
+
     while True:
         try:
             updates = await get_updates(offset=last_update_id)
@@ -54,12 +58,19 @@ async def polling_loop():
                         is_session_running = False
 
             await asyncio.sleep(POLLING_INTERVAL)
+
         except Exception as e:
             print(f"❌ Ошибка в polling_loop: {e}")
             await asyncio.sleep(5)
 
-if __name__ == "__main__":
+
+async def main():
     try:
-        asyncio.run(polling_loop())
+        await polling_loop()
     except Exception as e:
-        print(f"❌ Ошибка при запуске: {e}")
+        print(f"❌ Ошибка в main: {e}")
+        await asyncio.sleep(5)
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
