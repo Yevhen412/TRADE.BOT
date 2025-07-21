@@ -14,15 +14,15 @@ POLLING_INTERVAL = 2  # интервал опроса в секундах
 API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 is_session_running = False
 
-
 async def get_updates(offset=None):
     params = {"timeout": 10, "offset": offset}
     async with httpx.AsyncClient() as client:
         try:
             response = await client.get(f"{API_URL}/getUpdates", params=params)
+            response.raise_for_status()  # Выбросит исключение, если статус не 200
             return response.json()
         except Exception as e:
-            print(f"❌ Ошибка в get_updates: {e}")
+            print(f"❌ Ошибка в get_updates: {type(e).__name__}: {e}")
             return {}
 
 
