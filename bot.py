@@ -60,7 +60,7 @@ async def main():
         print("🤖 Бот запущен (polling)...")
         await bot.polling()
     except Exception as e:
-        print("❌ Ошибка в polling:", str(e))
+        print(f"❌ Ошибка в polling: {e}")
         await asyncio.sleep(5)
 
 if __name__ == "__main__":
