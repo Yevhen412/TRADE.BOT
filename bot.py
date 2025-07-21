@@ -1,6 +1,7 @@
 import asyncio
 import os
 from dotenv import load_dotenv
+import httpx
 from websocket_client import run_session
 from telegram_notifier import send_telegram_message
 
@@ -8,31 +9,56 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
+POLLING_INTERVAL = 2  # секунды между проверками Telegram
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
-
-# Глобальный флаг — идёт ли сессия
+API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 is_session_running = False
 
-@dp.message_handler(commands=["start"])
-async def start_handler(message: types.Message):
+
+async def get_updates(offset=None):
+    params = {"timeout": 10, "offset": offset}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{API_URL}/getUpdates", params=params)
+        return resp.json()
+
+
+async def send_reply(chat_id, text):
+    await send_telegram_message(text, chat_id)
+
+
+async def polling_loop():
     global is_session_running
+    last_update_id = None
 
-    if str(message.chat.id) != CHAT_ID:
-        return
+    print("🤖 Бот запущен (polling)...")
+    while True:
+        try:
+            updates = await get_updates(offset=last_update_id)
+            for update in updates.get("result", []):
+                last_update_id = update["update_id"] + 1
+                message = update.get("message", {})
+                chat_id = str(message.get("chat", {}).get("id", ""))
+                text = message.get("text", "")
 
-    if is_session_running:
-        await message.reply("⏳ Уже идёт сессия...")
-        return
+                if chat_id != CHAT_ID:
+                    continue
 
-    is_session_running = True
-    await message.reply("✅ Сессия запущена. Работаем 2 минуты...")
+                if text == "/start":
+                    if is_session_running:
+                        await send_reply(chat_id, "⏳ Уже идёт сессия...")
+                    else:
+                        is_session_running = True
+                        await send_reply(chat_id, "✅ Сессия запущена. Работаем 2 минуты...")
+                        await run_session(chat_id=chat_id, duration_seconds=120)
+                        await send_reply(chat_id, "⏹️ Сессия завершена.")
+                        is_session_running = False
 
-    await run_session(duration_seconds=120, chat_id=CHAT_ID)
+            await asyncio.sleep(POLLING_INTERVAL)
 
-    await message.reply("⏹️ Сессия завершена.")
-    is_session_running = False
+        except Exception as e:
+            print("❌ Ошибка в polling:", e)
+            await asyncio.sleep(5)
+
 
 if __name__ == "__main__":
-    executor.start_polling(dp)
+    asyncio.run(polling_loop())
