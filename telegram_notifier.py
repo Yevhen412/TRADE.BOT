@@ -1,14 +1,12 @@
-import aiohttp
-import asyncio
 import os
+import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
-
-async def send_telegram_message(text, chat_id):
+def send_telegram_message(text, chat_id):
     if not TOKEN or not chat_id:
         print("❌ BOT_TOKEN или chat_id не заданы.")
         return
@@ -20,16 +18,11 @@ async def send_telegram_message(text, chat_id):
     }
 
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, json=payload) as resp:
-                if resp.status != 200:
-                    print(f"❌ Ошибка отправки сообщения: {resp.status}")
-                    response_text = await resp.text()
-                    print("Ответ Telegram:", response_text)
-                else:
-                    print("✅ Сообщение отправлено успешно")
+        response = requests.post(url, json=payload)
+        if response.status_code != 200:
+            print(f"❌ Ошибка отправки сообщения: {response.status_code}")
+            print("Ответ Telegram:", response.text)
+        else:
+            print("✅ Сообщение отправлено успешно")
     except Exception as e:
         print("❌ Исключение при отправке сообщения:", str(e))
-
-
-
