@@ -1,12 +1,12 @@
+import httpx
 import os
-import requests
 from dotenv import load_dotenv
 
 load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 
-def send_telegram_message(text, chat_id):
+async def send_telegram_message(text, chat_id):
     if not TOKEN or not chat_id:
         print("❌ BOT_TOKEN или chat_id не заданы.")
         return
@@ -18,11 +18,12 @@ def send_telegram_message(text, chat_id):
     }
 
     try:
-        response = requests.post(url, json=payload)
-        if response.status_code != 200:
-            print(f"❌ Ошибка отправки сообщения: {response.status_code}")
-            print("Ответ Telegram:", response.text)
-        else:
-            print("✅ Сообщение отправлено успешно")
+        async with httpx.AsyncClient() as client:
+            response = await client.post(url, json=payload)
+            if response.status_code != 200:
+                print(f"❌ Ошибка отправки сообщения: {response.status_code}")
+                print("Ответ Telegram:", response.text)
+            else:
+                print("✅ Сообщение отправлено успешно")
     except Exception as e:
         print("❌ Исключение при отправке сообщения:", str(e))
