@@ -103,7 +103,7 @@ async def execute_trade(signal):
     stop_loss = entry * (1 - STOP_LOSS_PERCENT)
 
     try:
-        order_result = place_spot_order(symbol, "Buy", ORDER_QUANTITY)
+        order_result = await place_spot_order(symbol, "Buy", ORDER_QUANTITY)
         if not order_result["success"]:
             await send_telegram_message(f"❌ Ошибка покупки {symbol}: {order_result['error']}")
             in_trade = False
