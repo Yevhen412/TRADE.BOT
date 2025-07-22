@@ -1,112 +1,59 @@
-from datetime import datetime
-import time
-import os
-from pybit.unified_trading import HTTP
+import time from by_client import place_spot_order, get_current_price from telegram_notifier import send_telegram_message
 
-class TradeSimulator:
-    def __init__(self):
-        self.in_trade = False
-        self.last_trade_time = 0
-        self.delay_between_trades = 5  # ⏱️ 5 секунд между сделками
-        self.last_prices = {}
-        self.trade_log = []
+Условия сделки
 
-        # Добавлено для финального отчета
-        self.total_profit = 0
-        self.total_loss = 0
-        self.win_count = 0
-        self.loss_count = 0
+ORDER_QUANTITY = 200  # USDT TAKE_PROFIT_PERCENT = 0.0045  # 0.45% STOP_LOSS_PERCENT = 0.002  # 0.2% COMMISSION = 0.0028  # 0.28% TRADE_COOLDOWN = 5  # секунд между сделками
 
-        self.session = HTTP(
-            api_key=os.getenv("API_KEY"),
-            api_secret=os.getenv("API_SECRET"),
-        )
+active_trade = False last_trade_time = 0
 
-    def process(self, event):
-        try:
-            topic = event.get("topic", "")
-            data = event.get("data", [])
-            if not topic or not isinstance(data, list) or not data:
-                return None
+async def process_signal(pair, current_price): global active_trade, last_trade_time
 
-            symbol = topic.split(".")[1]
-            price = float(data[0]["p"])
-            timestamp = time.time()
+now = time.time()
+if active_trade or now - last_trade_time < TRADE_COOLDOWN:
+    return
 
-            self.last_prices[symbol] = (price, timestamp)
-            print(f"[DEBUG] Получен тик: {symbol} → {price}")
-            return self.check_correlation()
-        except Exception as e:
-            print("❌ Ошибка в process:", e)
-            return None
+# Покупка (лонг)
+entry_price = current_price
+take_profit_price = entry_price * (1 + TAKE_PROFIT_PERCENT)
+stop_loss_price = entry_price * (1 - STOP_LOSS_PERCENT)
 
-    def check_correlation(self):
-        now = time.time()
-        if self.in_trade or now - self.last_trade_time < self.delay_between_trades:
-            return None
+try:
+    order_result = place_spot_order(pair, 'Buy', ORDER_QUANTITY)
+    if not order_result['success']:
+        await send_telegram_message(f"❌ Не удалось купить {pair}: {order_result['error']}")
+        return
 
-        groups = [
-            ("BTCUSDT", "ETHUSDT"),
-            ("SOLUSDT", "AVAXUSDT"),
-            ("XRPUSDT", "ADAUSDT")
-        ]
-
-        for base, follower in groups:
-            base_data = self.last_prices.get(base)
-            follower_data = self.last_prices.get(follower)
-            if not base_data or not follower_data:
-                continue
-
-            base_price, base_time = base_data
-            follower_price, follower_time = follower_data
-
-            if now - base_time > 1.5 or now - follower_time > 1.5:
-                continue
-
-            diff = abs(base_price - follower_price) / base_price
-            if diff > 0.003:
-                self.in_trade = True
-                self.last_trade_time = now
-                return {"pair": follower, "side": "buy", "price": follower_price}
-
-        return None
-
-    async def execute_trade(self, signal):
-        """
-        Заглушка исполнения сделки. Здесь можно подключить реальный API или оставить как симуляцию.
-        """
-        price = signal["price"]
-        side = signal["side"]
-        pair = signal["pair"]
-
-        profit = round((price * 0.002), 4)  # симулируем прибыль 0.2%
-        is_win = True  # можно сделать рандом
-
-        # Логика фиксации результата
-        if is_win:
-            self.total_profit += profit
-            self.win_count += 1
-        else:
-            self.total_loss += profit
-            self.loss_count += 1
-
-        self.in_trade = False
-
-        now = datetime.now().strftime("%H:%M:%S")
-        return f"🟢 Сделка: {pair} {side.upper()} по {price}\n📈 {'+Profit' if is_win else '-Loss'}: {profit}\n🕒 {now}"
-
-    def get_session_pnl_report(self):
-        total_profit = round(self.total_profit, 4)
-        total_loss = round(self.total_loss, 4)
-        net_result = round(total_profit - total_loss, 4)
-        win_count = self.win_count
-        loss_count = self.loss_count
-
-        return (
-            f"📊 *Результаты сессии:*\n"
-            f"➕ Прибыльных сделок: {win_count}\n"
-            f"➖ Убыточных сделок: {loss_count}\n"
-            f"💰 Итоговая прибыль: {total_profit}\n"
-            f"💸 Итоговый убыток: {total_loss}\n"
-            f"📈 Чистый результат: {net_result}"
+    active_trade = True
+    last_trade_time = now
+    await send_telegram_message(
+        f"🟢 Покупка {pair} по {entry_price:.4f} (TP: {take_profit_price:.4f}, SL: {stop_loss_price:.4f})"
     )
+
+    # Мониторинг позиции
+    while True:
+        current_price = get_current_price(pair)
+
+        if current_price >= take_profit_price:
+            pnl = (take_profit_price - entry_price) * (ORDER_QUANTITY / entry_price)
+            net = pnl - (ORDER_QUANTITY * COMMISSION)
+            await send_telegram_message(
+                f"✅ Тейк профит достигнут по {pair} — цена {current_price:.4f}\nЧистая прибыль: {net:.4f} USDT"
+            )
+            break
+
+        elif current_price <= stop_loss_price:
+            pnl = (stop_loss_price - entry_price) * (ORDER_QUANTITY / entry_price)
+            net = pnl - (ORDER_QUANTITY * COMMISSION)
+            await send_telegram_message(
+                f"❌ Стоп-лосс сработал по {pair} — цена {current_price:.4f}\nУбыток: {net:.4f} USDT"
+            )
+            break
+
+        await asyncio.sleep(1)
+
+except Exception as e:
+    await send_telegram_message(f"❗ Ошибка при обработке сделки: {e}")
+
+finally:
+    active_trade = False
+
