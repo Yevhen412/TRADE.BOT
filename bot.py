@@ -1,39 +1,52 @@
 import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.filters import Command
-from dotenv import load_dotenv
 import os
-from websocket_client import run_trading_session
+from dotenv import load_dotenv
+from telegram_notifier import send_telegram_message
+from websocket_client import connect_websocket
 
 load_dotenv()
 
-API_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = int(os.getenv("TELEGRAM_CHAT_ID"))
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-bot = Bot(token=API_TOKEN)
-dp = Dispatcher()
+API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
+is_session_running = False
 
-# Флаг состояния торговой сессии
-session_active = False
-
-@dp.message(Command("start"))
-async def handle_start(message: types.Message):
-    global session_active
-    if session_active:
-        await message.answer("⚠️ Сессия уже активна. Дождитесь завершения.")
-        return
-
-    session_active = True
-    await message.answer("✅ Сессия запущена на 2 минуты...")
-    
-    # Запуск торговой сессии
-    await run_trading_session()
-
-    await message.answer("⛔️ Сессия завершена. Торговля отключена.")
-    session_active = False
+async def get_updates(offset=None):
+    import httpx
+    params = {"timeout": 10, "offset": offset}
+    async with httpx.AsyncClient() as client:
+        resp = await client.get(f"{API_URL}/getUpdates", params=params)
+        return resp.json()
 
 async def polling_loop():
-    await dp.start_polling(bot)
+    global is_session_running
+    last_update_id = None
+    print("🤖 Бот готов. Ждёт команду /start...")
+
+    while True:
+        updates = await get_updates(offset=last_update_id)
+        for update in updates.get("result", []):
+            last_update_id = update["update_id"] + 1
+            message = update.get("message", {})
+            chat_id = str(message.get("chat", {}).get("id", ""))
+            text = message.get("text", "")
+
+            if chat_id != TELEGRAM_CHAT_ID:
+                continue
+
+            if text == "/start":
+                if is_session_running:
+                    await send_telegram_message("⚠️ Уже запущена сессия.")
+                    continue
+
+                is_session_running = True
+                await send_telegram_message("✅ Сессия запущена на 2 минуты.")
+                await connect_websocket(duration_seconds=120)
+                await send_telegram_message("⏹️ Сессия завершена.")
+                is_session_running = False
+
+        await asyncio.sleep(2)
 
 if __name__ == "__main__":
     asyncio.run(polling_loop())
