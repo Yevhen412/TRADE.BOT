@@ -13,11 +13,13 @@ API_URL = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}"
 is_session_running = False
 
 async def get_updates(offset=None):
-    import httpx
-    params = {"timeout": 10, "offset": offset}
-    async with httpx.AsyncClient() as client:
-        resp = await client.get(f"{API_URL}/getUpdates", params=params)
-        return resp.json()
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{API_URL}/getUpdates", params={"offset": offset})
+            return resp.json()
+    except httpx.ReadTimeout:
+        print("⚠️ ReadTimeout при попытке получить обновления Telegram")
+        return {}  # Возвращаем пустой словарь, чтобы не упало в polling_loop
 
 async def polling_loop():
     global is_session_running
