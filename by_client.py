@@ -26,7 +26,7 @@ def _get_headers(params, recv_window=5000):
     params["sign"] = signature
     return params
 
-def get_current_price(symbol: str) -> float:
+#def get_current_price(symbol: str) -> float:
     url = f"{BASE_URL}/v5/market/tickers"
     response = requests.get(url, params={"category": "spot", "symbol": symbol})
     data = response.json()
