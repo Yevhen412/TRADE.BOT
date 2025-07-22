@@ -1,9 +1,12 @@
 import asyncio
 import json
 import time
+import websockets
 
 from by_client import place_spot_order, get_current_price
 from telegram_notifier import send_telegram_message
+
+__all__ = ["connect_websocket"]
 
 ORDER_QUANTITY = 200  # USDT
 TAKE_PROFIT_PERCENT = 0.0045  # 0.45%
@@ -21,9 +24,6 @@ last_prices = {}
 in_trade = False
 last_trade_time = 0
 
-__all__ = ["connect_websocket"]
-
-
 def process_event(event):
     topic = event.get("topic", "")
     data = event.get("data", [])
@@ -36,7 +36,6 @@ def process_event(event):
     last_prices[symbol] = (price, timestamp)
     print(f"[TICK] {symbol}: {price}")
     return check_correlation()
-
 
 def check_correlation():
     global in_trade, last_trade_time
@@ -70,10 +69,7 @@ def check_correlation():
 
     return None
 
-
 async def connect_websocket(duration_seconds=120):
-    import websockets
-
     uri = "wss://stream.bybit.com/v5/public/spot"
     async with websockets.connect(uri) as ws:
         symbols = [s for pair in SYMBOL_GROUPS for s in pair]
@@ -100,6 +96,10 @@ async def connect_websocket(duration_seconds=120):
                 await send_telegram_message(f"❗ Ошибка WebSocket: {e}")
                 break
 
+        # ✅ Завершение WebSocket сессии
+        await ws.close()
+        print("[WS] Соединение закрыто")
+        await send_telegram_message("🔒 WebSocket отключён, сессия завершена.")
 
 async def execute_trade(signal):
     global in_trade
@@ -126,15 +126,13 @@ async def execute_trade(signal):
             if current_price >= take_profit:
                 pnl = (take_profit - entry) * (ORDER_QUANTITY / entry)
                 net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(
-                    f"✅ TP достигнут {symbol} — {current_price:.4f}\nЧистая прибыль: {net:.4f} USDT")
+                await send_telegram_message(f"✅ TP достигнут {symbol} — {current_price:.4f}\nЧистая прибыль: {net:.4f} USDT")
                 break
 
             elif current_price <= stop_loss:
                 pnl = (stop_loss - entry) * (ORDER_QUANTITY / entry)
                 net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(
-                    f"❌ SL сработал {symbol} — {current_price:.4f}\nУбыток: {net:.4f} USDT")
+                await send_telegram_message(f"❌ SL сработал {symbol} — {current_price:.4f}\nУбыток: {net:.4f} USDT")
                 break
 
             await asyncio.sleep(1)
