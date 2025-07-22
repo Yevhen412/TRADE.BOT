@@ -25,7 +25,13 @@ async def polling_loop():
     print("🤖 Бот готов. Ждёт команду /start...")
 
     while True:
-        updates = await get_updates(offset=last_update_id)
+        try:
+    updates = await get_updates(offset=last_update_id)
+except Exception as e:
+    print("[Telegram ERROR]", e)
+    await send_telegram_message(f"❗️Ошибка при получении обновлений от Telegram:\n{e}")
+    await asyncio.sleep(5)
+    continue
         if "result" in updates:
             for update in updates["result"]:
                 last_update_id = update["update_id"] + 1
