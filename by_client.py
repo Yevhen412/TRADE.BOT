@@ -35,30 +35,17 @@ def get_current_price(symbol: str) -> float:
     except:
         return None
 
-def place_spot_order(symbol: str, side: str, usdt_amount: float = 200):
-    price = get_current_price(symbol)
-    if not price:
-        return {"success": False, "error": "❌ Не удалось получить цену"}
-
-    qty = round(usdt_amount / price, 6)  # округление зависит от конкретной пары
-
-    url = f"{BASE_URL}/v5/order/create"
-    params = {
-        "category": "spot",
-        "symbol": symbol,
-        "side": side.capitalize(),
-        "orderType": "Market",
-        "qty": qty,
-        "timeInForce": "IOC",
+def place_spot_order(pair, side, amount):
+    print(f"[FAKE ORDER] {side} {pair} на сумму {amount} USDT")
+    return {
+        "success": True,
+        "order_id": "FAKE123456"
     }
-    signed_params = _get_headers(params)
-    response = requests.post(url, params=signed_params)
-    data = response.json()
 
-    if data.get("retCode") == 0:
-        return {"success": True, "order_id": data["result"]["orderId"]}
-    else:
-        return {"success": False, "error": data.get("retMsg", "Unknown error")}
+def get_current_price(pair):
+    # Возвращаем тестовую цену, например, 100.0
+    print(f"[FAKE PRICE] Возвращаю цену 100.0 USDT для {pair}")
+    return 100.0
 
 def get_balance():
     url = f"{BASE_URL}/v5/account/wallet-balance"
