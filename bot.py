@@ -1,63 +1,55 @@
 import asyncio
-import os
+import logging
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.types import Message
+from aiogram.filters import Command
 from dotenv import load_dotenv
-from trade_simulator import TradeSimulator
-from telegram_notifier import send_telegram_message
+import os
+
+from websocket_client import run_trading_session
 
 load_dotenv()
 
-BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+CHAT_ID = int(os.getenv("CHAT_ID"))
 
-simulator = TradeSimulator()
-is_session_running = False
+bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher()
 
-async def handle_start():
-    global is_session_running
-    is_session_running = True
+session_active = False
+cooldown = False
 
-    await send_telegram_message("✅ Сессия запущена на 2 минуты…")
+async def send_telegram_message(text):
+    await bot.send_message(chat_id=CHAT_ID, text=text)
 
-    # Фиктивная сделка
-    trade = simulator.simulate_trade(None)
-    await send_telegram_message(
-        f"🟢 Фиктивная сделка: Вход {trade['entry']}, Выход {trade['exit']}, Прибыль: {trade['pnl']:.2f} USDT"
-    )
+@dp.message(Command("start"))
+async def handle_start(message: Message):
+    global session_active, cooldown
+    if session_active:
+        await send_telegram_message("⚠️ Сессия уже активна!")
+        return
+    if cooldown:
+        await send_telegram_message("⏳ Подождите перед следующим запуском.")
+        return
 
-    await asyncio.sleep(120)
+    session_active = True
+    await send_telegram_message("✅ Сессия запущена на 2 минуты...")
 
-    # Отчёт по сессии
-    report = simulator.get_session_pnl_report()
-    await send_telegram_message(f"📊 Итог сессии:\n{report}")
-    is_session_running = False
+    await run_trading_session(send_telegram_message)
+
+    await send_telegram_message("📉 Сессия завершена.")
+    session_active = False
+    cooldown = True
+    await asyncio.sleep(180)  # 3 минуты ожидания
+    cooldown = False
 
 async def polling_loop():
-    import httpx
-
-    API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-    offset = None
-
-    while True:
-        try:
-            async with httpx.AsyncClient() as client:
-                resp = await client.get(f"{API_URL}/getUpdates", params={"offset": offset})
-                updates = resp.json().get("result", [])
-                for update in updates:
-                    offset = update["update_id"] + 1
-                    msg = update.get("message", {})
-                    chat_id = str(msg.get("chat", {}).get("id", ""))
-                    text = msg.get("text", "")
-
-                    if chat_id == CHAT_ID and text == "/start":
-                        if is_session_running:
-                            await send_telegram_message("⏳ Уже идёт сессия…")
-                        else:
-                            asyncio.create_task(handle_start())
-
-        except Exception as e:
-            print("❌ Ошибка polling:", e)
-
-        await asyncio.sleep(2)
+    try:
+        await dp.start_polling(bot)
+    finally:
+        await bot.session.close()
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     asyncio.run(polling_loop())
