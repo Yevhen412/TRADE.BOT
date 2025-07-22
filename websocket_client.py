@@ -1,72 +1,80 @@
-import asyncio
-import json
 import time
+import json
+import os
+import asyncio
 import websockets
-
-from by_client import place_spot_order, get_current_price
+import httpx
+from dotenv import load_dotenv
 from telegram_notifier import send_telegram_message
 
-# Параметры торговли
-ORDER_QUANTITY = 200  # USDT
-TAKE_PROFIT_PERCENT = 0.0045  # 0.45%
-STOP_LOSS_PERCENT = 0.002     # 0.2%
-COMMISSION = 0.0028           # 0.28%
-TRADE_COOLDOWN = 5            # секунд между сделками
+load_dotenv()
 
-SYMBOL_GROUPS = [
-    ("BTCUSDT", "ETHUSDT"),
-    ("SOLUSDT", "AVAXUSDT"),
-    ("XRPUSDT", "ADAUSDT")
-]
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
 
-last_prices = {}
-in_trade = False
+SYMBOL_GROUPS = [["ETHUSDT", "BTCUSDT"], ["SOLUSDT", "AVAXUSDT"], ["XRPUSDT", "ADAUSDT"]]
+TRADE_SIZE = 200
+COMMISSION_RATE = 0.0028  # 0.28%
+MIN_PROFIT = 0.03
+STOP_LOSS_MULTIPLIER = 1 / 2.25
+TRADE_INTERVAL = 5
+
 last_trade_time = 0
+in_trade = False
 
 def process_event(event):
-    topic = event.get("topic", "")
-    data = event.get("data", [])
-    if not topic or not isinstance(data, list) or not data:
-        return None
-
-    symbol = topic.split(".")[1]
-    price = float(data[0]["p"])
-    timestamp = time.time()
-    last_prices[symbol] = (price, timestamp)
-    print(f"[TICK] {symbol}: {price}")
-    return check_correlation()
-
-def check_correlation():
-    global in_trade, last_trade_time
-
+    # 💡 Здесь будет логика сигнала. Пока фиктивно:
     now = time.time()
-    if in_trade or now - last_trade_time < TRADE_COOLDOWN:
+    global last_trade_time, in_trade
+    if in_trade or now - last_trade_time < TRADE_INTERVAL:
         return None
+    in_trade = True
+    last_trade_time = now
+    return {
+        "symbol": "ETHUSDT",
+        "entry_price": 2000.0,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    }
 
-    for base, follower in SYMBOL_GROUPS:
-        base_data = last_prices.get(base)
-        follower_data = last_prices.get(follower)
-        if not base_data or not follower_data:
-            continue
-
-        base_price, base_time = base_data
-        follower_price, follower_time = follower_data
-
-        if abs(now - base_time) > 1.5 or abs(now - follower_time) > 1.5:
-            continue
-
-        diff = abs(base_price - follower_price) / base_price
-        if diff >= 0.003:  # 0.3%
-            print(f"[SIGNAL] Correlation found: {follower}")
-            in_trade = True
-            last_trade_time = now
-            return {
-                "symbol": follower,
-                "entry_price": follower_price,
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            }
-
+async def place_spot_order(symbol, side, qty):
+    url = "https://api.bybit.com/v5/order/create"
+    headers = {
+        "X-BAPI-API-KEY": API_KEY,
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "category": "spot",  # Вариант: удалить это поле, если UNIFIED
+        "symbol": symbol,
+        "side": side,
+        "orderType": "Market",
+        "qty": qty,
+        "timeInForce": "IOC"
+    }
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.post(url, json=payload, headers=headers)
+            data = resp.json()
+            if "retCode" in data and data["retCode"] == 0:
+                return data
+            else:
+                await send_telegram_message(f"❌ Не удалось купить {symbol}: {data.get('retMsg', 'Unknown error')}")
+    except Exception as e:
+        await send_telegram_message(f"❌ Ошибка при покупке {symbol}: {str(e)}")
     return None
+
+async def execute_trade(signal):
+    global in_trade
+    symbol = signal["symbol"]
+    entry_price = signal["entry_price"]
+    take_price = round(entry_price * 1.0045, 2)
+    stop_price = round(entry_price * (1 - (1.0045 - 1) / 2.25), 2)
+
+    result = await place_spot_order(symbol, "Buy", qty=TRADE_SIZE / entry_price)
+    if result:
+        await send_telegram_message(
+            f"✅ ЖИВАЯ СДЕЛКА: Куплено {symbol} по {entry_price}, тейк {take_price}, стоп {stop_price}"
+        )
+    in_trade = False
 
 async def connect_websocket(duration_seconds=120):
     uri = "wss://stream.bybit.com/v5/public/spot"
@@ -81,7 +89,6 @@ async def connect_websocket(duration_seconds=120):
         print("[WS] Подключение и подписка завершены")
 
         start_time = time.time()
-
         while time.time() - start_time < duration_seconds:
             try:
                 message = await asyncio.wait_for(ws.recv(), timeout=10)
@@ -92,48 +99,5 @@ async def connect_websocket(duration_seconds=120):
             except asyncio.TimeoutError:
                 continue
             except Exception as e:
-                print("[WS ERROR]", e)
-                await send_telegram_message(f"❗ WebSocket ошибка: {e}")
+                await send_telegram_message(f"❗ WS ошибка: {e}")
                 break
-
-async def execute_trade(signal):
-    global in_trade
-    symbol = signal["symbol"]
-    entry = signal["entry_price"]
-    take_profit = entry * (1 + TAKE_PROFIT_PERCENT)
-    stop_loss = entry * (1 - STOP_LOSS_PERCENT)
-
-    try:
-        result = place_spot_order(symbol, "Buy", ORDER_QUANTITY)
-        if not result["success"]:
-            await send_telegram_message(f"❌ Ошибка покупки {symbol}: {result['error']}")
-            in_trade = False
-            return
-
-        await send_telegram_message(f"🟢 Покупка {symbol} по {entry:.4f} (TP: {take_profit:.4f}, SL: {stop_loss:.4f})")
-
-        while True:
-            current_price = get_current_price(symbol)
-            if current_price is None:
-                await asyncio.sleep(1)
-                continue
-
-            if current_price >= take_profit:
-                pnl = (take_profit - entry) * (ORDER_QUANTITY / entry)
-                net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(f"✅ TP {symbol}: {current_price:.4f} | Прибыль: {net:.4f} USDT")
-                break
-
-            elif current_price <= stop_loss:
-                pnl = (stop_loss - entry) * (ORDER_QUANTITY / entry)
-                net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(f"❌ SL {symbol}: {current_price:.4f} | Убыток: {net:.4f} USDT")
-                break
-
-            await asyncio.sleep(1)
-
-    except Exception as e:
-        await send_telegram_message(f"❗ Ошибка сделки {symbol}: {e}")
-
-    finally:
-        in_trade = False
