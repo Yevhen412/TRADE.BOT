@@ -1,51 +1,63 @@
 import asyncio
 import os
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import Message
-from aiogram.enums import ParseMode
-from aiogram.fsm.storage.memory import MemoryStorage
-from aiogram.utils.markdown import hbold
-from aiogram import Router
-from aiogram.filters import Command
-
+from dotenv import load_dotenv
+from trade_simulator import TradeSimulator
 from telegram_notifier import send_telegram_message
-from trade_simulator import run_trading_session
 
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-ALLOWED_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+load_dotenv()
 
-bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
-dp = Dispatcher(storage=MemoryStorage())
-router = Router()
-dp.include_router(router)
+BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
+CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-session_running = False
+simulator = TradeSimulator()
+is_session_running = False
 
-@router.message(Command("start"))
-async def handle_start(message: Message):
-    global session_running
+async def handle_start():
+    global is_session_running
+    is_session_running = True
 
-    if str(message.chat.id) != str(ALLOWED_CHAT_ID):
-        await message.answer("❌ У вас нет доступа.")
-        return
+    await send_telegram_message("✅ Сессия запущена на 2 минуты…")
 
-    if session_running:
-        await message.answer("⚠️ Сессия уже запущена. Пожалуйста, дождитесь завершения.")
-        return
+    # Фиктивная сделка
+    trade = simulator.simulate_trade(None)
+    await send_telegram_message(
+        f"🟢 Фиктивная сделка: Вход {trade['entry']}, Выход {trade['exit']}, Прибыль: {trade['pnl']:.2f} USDT"
+    )
 
-    session_running = True
-    await message.answer("✅ Сессия запущена на 2 минуты...")
+    await asyncio.sleep(120)
 
-    try:
-        result_text = await run_trading_session()
-        await message.answer(result_text)
-    except Exception as e:
-        await message.answer(f"❌ Ошибка в сессии: {e}")
-    finally:
-        session_running = False
+    # Отчёт по сессии
+    report = simulator.get_session_pnl_report()
+    await send_telegram_message(f"📊 Итог сессии:\n{report}")
+    is_session_running = False
 
-async def main():
-    await dp.start_polling(bot)
+async def polling_loop():
+    import httpx
+
+    API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
+    offset = None
+
+    while True:
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(f"{API_URL}/getUpdates", params={"offset": offset})
+                updates = resp.json().get("result", [])
+                for update in updates:
+                    offset = update["update_id"] + 1
+                    msg = update.get("message", {})
+                    chat_id = str(msg.get("chat", {}).get("id", ""))
+                    text = msg.get("text", "")
+
+                    if chat_id == CHAT_ID and text == "/start":
+                        if is_session_running:
+                            await send_telegram_message("⏳ Уже идёт сессия…")
+                        else:
+                            asyncio.create_task(handle_start())
+
+        except Exception as e:
+            print("❌ Ошибка polling:", e)
+
+        await asyncio.sleep(2)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(polling_loop())
