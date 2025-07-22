@@ -5,6 +5,7 @@ import requests
 import hmac
 import hashlib
 import os
+import websockets
 from urllib.parse import urlencode
 from dotenv import load_dotenv
 
@@ -175,7 +176,6 @@ async def execute_trade(signal, send_telegram_message):
         in_trade = False
 
 async def run_trading_session(send_telegram_message, duration_seconds=120):
-    import websockets
 
     uri = "wss://stream.bybit.com/v5/public/spot"
     symbols = [s for pair in SYMBOL_GROUPS for s in pair]
