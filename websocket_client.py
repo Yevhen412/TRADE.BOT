@@ -9,6 +9,8 @@ from telegram_notifier import send_telegram_message
 
 load_dotenv()
 
+__all__ = ["connect_websocket"]
+
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
