@@ -1,5 +1,5 @@
 # trade_simulator.py
-
+"""
 class TradeSimulator:
     def __init__(self):
         self.session_trades = []
