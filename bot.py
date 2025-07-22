@@ -1,77 +1,49 @@
 import asyncio
-import os
-from dotenv import load_dotenv
-import httpx
-from websocket_client import run_session
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.types import Message
+from aiogram.filters import CommandStart
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram import Router
+
+from websocket_client import connect_websocket
 from telegram_notifier import send_telegram_message
 
-load_dotenv()
+import os
 
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-CHAT_ID = os.getenv("CHAT_ID")
-POLLING_INTERVAL = 2
+BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher(storage=MemoryStorage())
+router = Router()
+dp.include_router(router)
 
-API_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
-is_session_running = False
+session_active = False  # Флаг, чтобы избежать автоповтора
 
+@router.message(CommandStart())
+async def start_command(message: Message):
+    global session_active
+    if session_active:
+        await message.answer("⚠️ Сессия уже запущена. Подождите окончания.")
+        return
+    session_active = True
+    await message.answer("✅ Сессия запущена на 2 минуты…")
+    asyncio.create_task(run_session())
 
-async def get_updates(offset=None):
-    params = {"timeout": 10, "offset": offset}
+async def run_session():
+    global session_active
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{API_URL}/getUpdates", params=params, timeout=20)
-            response.raise_for_status()
-            return response.json()
-    except httpx.HTTPStatusError as e:
-        print(f"❌ Ошибка в get_updates: HTTPStatusError: {e}")
-    except httpx.ReadTimeout:
-        print("❌ Ошибка в get_updates: ReadTimeout")
+        print("🔁 Стартую сессию WebSocket на 2 минуты")
+        await send_telegram_message("🔁 Сессия WebSocket стартует")
+        await connect_websocket(duration_seconds=120)
+        await send_telegram_message("⏹️ Сессия завершена. Нажмите /start для нового запуска")
     except Exception as e:
-        print(f"❌ Ошибка в get_updates: {e}")
-    return {}  # Возврат пустого словаря при ошибке
-
-
-async def send_reply(chat_id, text):
-    await send_telegram_message(text, chat_id)
-
-
-async def polling_loop():
-    global is_session_running
-    last_update_id = None
-
-    print("🤖 Бот запущен (polling)...")
-
-    while True:
-        updates = await get_updates(offset=last_update_id)
-        if not updates:
-            await asyncio.sleep(POLLING_INTERVAL)
-            continue
-
-        for update in updates.get("result", []):
-            last_update_id = update["update_id"] + 1
-            message = update.get("message", {})
-            chat_id = str(message.get("chat", {}).get("id", ""))
-            text = message.get("text", "")
-
-            if chat_id != CHAT_ID:
-                continue
-
-            if text == "/start":
-                if is_session_running:
-                    await send_reply(chat_id, "⏳ Уже идёт сессия...")
-                else:
-                    is_session_running = True
-                    await send_reply(chat_id, "✅ Сессия запущена. Работаем 2 минуты...")
-                    await run_session(chat_id=chat_id, duration_seconds=120)
-                    await send_reply(chat_id, "⏹️ Сессия завершена.")
-                    is_session_running = False
-
-        await asyncio.sleep(POLLING_INTERVAL)
-
+        print("❌ Ошибка в run_session:", e)
+        await send_telegram_message(f"❌ Ошибка: {e}")
+    finally:
+        session_active = False
 
 async def main():
-    await polling_loop()
-
+    await dp.start_polling(bot)
 
 if __name__ == "__main__":
     asyncio.run(main())
