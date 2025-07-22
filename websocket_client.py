@@ -1,139 +1,67 @@
-__all__ = ["connect_websocket"]
-
-import asyncio
-import json
+import os
 import time
-import websockets
-
-from by_client import place_spot_order, get_current_price
+import hmac
+import hashlib
+import requests
+from dotenv import load_dotenv
 from telegram_notifier import send_telegram_message
 
-ORDER_QUANTITY = 200  # USDT
-TAKE_PROFIT_PERCENT = 0.0045  # 0.45%
-STOP_LOSS_PERCENT = 0.002     # 0.2%
-COMMISSION = 0.0028           # 0.28%
-TRADE_COOLDOWN = 5            # интервал между сделками (секунды)
+load_dotenv()
 
-SYMBOL_GROUPS = [
-    ("BTCUSDT", "ETHUSDT"),
-    ("SOLUSDT", "AVAXUSDT"),
-    ("XRPUSDT", "ADAUSDT")
-]
+API_KEY = os.getenv("API_KEY")
+API_SECRET = os.getenv("API_SECRET")
+BASE_URL = "https://api.bybit.com"
 
-last_prices = {}
-in_trade = False
-last_trade_time = 0
+def generate_signature(params: dict, secret: str) -> str:
+    sorted_params = dict(sorted((k, str(v)) for k, v in params.items() if v is not None))
+    query_string = '&'.join(f"{k}={v}" for k, v in sorted_params.items())
+    return hmac.new(secret.encode(), query_string.encode(), hashlib.sha256).hexdigest()
 
-def process_event(event):
-    topic = event.get("topic", "")
-    data = event.get("data", [])
-    if not topic or not isinstance(data, list) or not data:
-        return None
+def place_spot_order(symbol: str, side: str, quote_qty: float, order_link_id: str):
+    url = f"{BASE_URL}/v5/order/create"
+    
+    timestamp = str(int(time.time() * 1000))
+    params = {
+        "apiKey": API_KEY,
+        "timestamp": timestamp,
+        "symbol": symbol,
+        "side": side,
+        "orderType": "Market",
+        "quoteQty": quote_qty,
+        "orderLinkId": order_link_id
+        # ❌ "category": "spot" — не указываем!
+    }
 
-    symbol = topic.split(".")[1]
-    price = float(data[0]["p"])
-    timestamp = time.time()
-    last_prices[symbol] = (price, timestamp)
-    print(f"[TICK] {symbol}: {price}")
-    return check_correlation()
+    signature = generate_signature(params, API_SECRET)
+    headers = {
+        "X-BYBIT-API-KEY": API_KEY,
+        "Content-Type": "application/json"
+    }
 
-def check_correlation():
-    global in_trade, last_trade_time
-
-    now = time.time()
-    if in_trade or now - last_trade_time < TRADE_COOLDOWN:
-        return None
-
-    for base, follower in SYMBOL_GROUPS:
-        base_data = last_prices.get(base)
-        follower_data = last_prices.get(follower)
-        if not base_data or not follower_data:
-            continue
-
-        base_price, base_time = base_data
-        follower_price, follower_time = follower_data
-
-        if abs(now - base_time) > 1.5 or abs(now - follower_time) > 1.5:
-            continue
-
-        diff = abs(base_price - follower_price) / base_price
-        if diff >= 0.003:  # 0.3%
-            print(f"[SIGNAL] Correlation found: {follower}")
-            in_trade = True
-            last_trade_time = now
-            return {
-                "symbol": follower,
-                "entry_price": follower_price,
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime())
-            }
-
-    return None
-
-async def connect_websocket(duration_seconds=120):
-    uri = "wss://stream.bybit.com/v5/public/spot"
-    async with websockets.connect(uri) as ws:
-        symbols = [s for pair in SYMBOL_GROUPS for s in pair]
-        subscribe_message = {
-            "op": "subscribe",
-            "args": [f"publicTrade.{symbol}" for symbol in symbols]
-        }
-        await ws.send(json.dumps(subscribe_message))
-        print("[WS] Подключение и подписка на пары завершены")
-
-        start_time = time.time()
-
-        while time.time() - start_time < duration_seconds:
-            try:
-                message = await asyncio.wait_for(ws.recv(), timeout=10)
-                event = json.loads(message)
-                signal = process_event(event)
-                if signal:
-                    await execute_trade(signal)
-            except asyncio.TimeoutError:
-                continue
-            except Exception as e:
-                print("[WS ERROR]", e)
-                await send_telegram_message(f"❗ Ошибка WebSocket: {e}")
-                break
-
-async def execute_trade(signal):
-    global in_trade
-    symbol = signal["symbol"]
-    entry = signal["entry_price"]
-    take_profit = entry * (1 + TAKE_PROFIT_PERCENT)
-    stop_loss = entry * (1 - STOP_LOSS_PERCENT)
+    params["sign"] = signature
 
     try:
-        order_result = place_spot_order(symbol, "Buy", ORDER_QUANTITY)
-        if not order_result["success"]:
-            await send_telegram_message(f"❌ Ошибка покупки {symbol}: {order_result['error']}")
-            in_trade = False
-            return
+        response = requests.post(url, json=params, headers=headers, timeout=10)
+        response_data = response.json()
 
-        await send_telegram_message(f"🟢 Покупка {symbol} по {entry:.4f} (TP: {take_profit:.4f}, SL: {stop_loss:.4f})")
-
-        while True:
-            current_price = get_current_price(symbol)
-            if current_price is None:
-                await asyncio.sleep(1)
-                continue
-
-            if current_price >= take_profit:
-                pnl = (take_profit - entry) * (ORDER_QUANTITY / entry)
-                net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(f"✅ TP достигнут {symbol} — {current_price:.4f}\nЧистая прибыль: {net:.4f} USDT")
-                break
-
-            elif current_price <= stop_loss:
-                pnl = (stop_loss - entry) * (ORDER_QUANTITY / entry)
-                net = pnl - (ORDER_QUANTITY * COMMISSION)
-                await send_telegram_message(f"❌ SL сработал {symbol} — {current_price:.4f}\nУбыток: {net:.4f} USDT")
-                break
-
-            await asyncio.sleep(1)
-
+        if response_data.get("retCode") == 0:
+            return True, response_data
+        else:
+            error_msg = response_data.get("retMsg", "Unknown error")
+            return False, f"❌ Ошибка покупки {symbol}: {error_msg}"
     except Exception as e:
-        await send_telegram_message(f"❗ Ошибка сделки {symbol}: {e}")
+        return False, f"❌ Ошибка при отправке запроса: {e}"
 
-    finally:
-        in_trade = False
+async def connect_websocket(signal_data: dict):
+    symbol = signal_data.get("symbol")
+    order_link_id = f"long_{int(time.time())}"
+
+    success, result = place_spot_order(symbol, "Buy", 200, order_link_id)
+    
+    if success:
+        await send_telegram_message(f"✅ Покупка {symbol} выполнена успешно!")
+    else:
+        await send_telegram_message(str(result))
+
+
+__all__ = ["connect_websocket"]
