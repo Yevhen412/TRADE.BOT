@@ -2,7 +2,7 @@ import asyncio
 import os
 from dotenv import load_dotenv
 from telegram_notifier import send_telegram_message
-from websocket_client import connect_websocket
+import websocket_client
 
 load_dotenv()
 
@@ -26,27 +26,21 @@ async def polling_loop():
 
     while True:
         updates = await get_updates(offset=last_update_id)
-        for update in updates.get("result", []):
-            last_update_id = update["update_id"] + 1
-            message = update.get("message", {})
-            chat_id = str(message.get("chat", {}).get("id", ""))
-            text = message.get("text", "")
+        if "result" in updates:
+            for update in updates["result"]:
+                last_update_id = update["update_id"] + 1
+                if "message" in update:
+                    text = update["message"].get("text", "")
+                    chat_id = update["message"]["chat"]["id"]
 
-            if chat_id != TELEGRAM_CHAT_ID:
-                continue
+                    if text == "/start" and not is_session_running:
+                        is_session_running = True
+                        await send_telegram_message("✅ Сессия запущена на 2 минуты…")
+                        await websocket_client.connect_websocket(duration_seconds=120)
+                        await send_telegram_message("🛑 Сессия завершена. Торговля остановлена.")
+                        is_session_running = False
 
-            if text == "/start":
-                if is_session_running:
-                    await send_telegram_message("⚠️ Уже запущена сессия.")
-                    continue
-
-                is_session_running = True
-                await send_telegram_message("✅ Сессия запущена на 2 минуты.")
-                await connect_websocket(duration_seconds=120)
-                await send_telegram_message("⏹️ Сессия завершена.")
-                is_session_running = False
-
-        await asyncio.sleep(2)
+        await asyncio.sleep(1)
 
 if __name__ == "__main__":
     asyncio.run(polling_loop())
