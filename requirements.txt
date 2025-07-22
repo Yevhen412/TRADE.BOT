@@ -1,7 +1,5 @@
-python-dotenv 
-pybit==5.11.0
-httpx
-websockets
+aiogram==3.4.1
+python-dotenv==1.0.1
 
 
 
