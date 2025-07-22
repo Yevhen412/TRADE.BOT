@@ -1,29 +1,27 @@
-import httpx
 import os
-from dotenv import load_dotenv
+import requests
 
-load_dotenv()
+TELEGRAM_TOKEN = os.getenv("TELEGRAM_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
 
-TOKEN = os.getenv("BOT_TOKEN")
-
-async def send_telegram_message(text, chat_id):
-    if not TOKEN or not chat_id:
-        print("❌ BOT_TOKEN или chat_id не заданы.")
+def send_telegram_message(message: str):
+    """
+    Отправка сообщения в Telegram-чат.
+    """
+    if not TELEGRAM_TOKEN or not TELEGRAM_CHAT_ID:
+        print("[ERROR] Не заданы переменные окружения TELEGRAM_TOKEN или TELEGRAM_CHAT_ID")
         return
 
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     payload = {
-        "chat_id": chat_id,
-        "text": text
+        "chat_id": TELEGRAM_CHAT_ID,
+        "text": message,
+        "parse_mode": "HTML"
     }
 
     try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(url, json=payload)
-            if response.status_code != 200:
-                print(f"❌ Ошибка отправки сообщения: {response.status_code}")
-                print("Ответ Telegram:", response.text)
-            else:
-                print("✅ Сообщение отправлено успешно")
+        response = requests.post(url, data=payload)
+        if not response.ok:
+            print(f"[ERROR] Не удалось отправить сообщение в Telegram: {response.text}")
     except Exception as e:
-        print("❌ Исключение при отправке сообщения:", str(e))
+        print(f"[EXCEPTION] Ошибка отправки Telegram-сообщения: {e}")
