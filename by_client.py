@@ -50,15 +50,11 @@ async def place_spot_order(symbol: str, qty: float):
 
     json_body = json.dumps(body, separators=(",", ":"))
     sign_payload = f"{timestamp}{API_KEY}{recv_window}{json_body}"
-    
-    print(f"[DEBUG] body: {body}")
-    print(f"[DEBUG] sign_payload: {sign_payload}")
-    
     signature = hmac.new(
-        API_SECRET.encode("utf-8"),
-        sign_payload.encode("utf-8"),
-        hashlib.sha256
-    ).hexdigest()
+    API_SECRET.encode("utf-8"),
+    sign_payload.encode("utf-8"),
+    hashlib.sha256
+).hexdigest()
 
     headers = {
         "X-BAPI-API-KEY": API_KEY,
