@@ -1,38 +1,62 @@
-import asyncio import os import json import time import hmac import hashlib import aiohttp from urllib.parse import urlencode
+import asyncio
+import signal
+import sys
+import os
 
+from aiogram import Bot, Dispatcher, types
+from aiogram.enums import ParseMode
+from aiogram.types import Message
+from aiogram.filters import CommandStart
+from aiogram.fsm.storage.memory import MemoryStorage
+from aiogram import Router
+
+from websocket_client import connect_websocket
 from telegram_notifier import send_telegram_message
 
-all = ["connect_websocket"]
+# === Переменные окружения ===
+BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-API_KEY = os.getenv("BYBIT_API_KEY") API_SECRET = os.getenv("BYBIT_API_SECRET")
+# === Инициализация бота и диспетчера ===
+bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
+dp = Dispatcher(storage=MemoryStorage())
+router = Router()
+dp.include_router(router)
 
-session_active = True
+session_running = False  # Флаг контроля сессии
 
-def generate_signature(params: dict) -> str: query_string = urlencode(params) return hmac.new(API_SECRET.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
+# === Обработчик SIGTERM ===
+def handle_sigterm(*_):
+    print("🛑 SIGTERM получен ботом. Завершаем...")
+    sys.exit(0)
 
-async def connect_websocket(duration_seconds=120): global session_active session_active = True url = "wss://stream.bybit.com/v5/public/spot" pairs = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "AVAXUSDT", "XRPUSDT"] end_time = time.time() + duration_seconds
+# === Обработка команды /start ===
+@router.message(CommandStart())
+async def start_command(message: Message):
+    global session_running
+    if session_running:
+        await message.answer("⚠️ Сессия уже запущена. Дождитесь завершения.")
+        return
 
-async with aiohttp.ClientSession() as session:
-    async with session.ws_connect(url) as ws:
-        await ws.send_json({
-            "op": "subscribe",
-            "args": [f"tickers.{pair}" for pair in pairs]
-        })
+    session_running = True
+    await message.answer("✅ Сессия запущена на 2 минуты…")
+    asyncio.create_task(run_session())
 
-        try:
-            while time.time() < end_time and session_active:
-                msg = await ws.receive(timeout=10)
-                if msg.type == aiohttp.WSMsgType.TEXT:
-                    data = json.loads(msg.data)
-                    if 'data' in data:
-                        symbol = data['data']['symbol']
-                        price = data['data']['lastPrice']
-                        print(f"[TICK] {symbol}: {price}")
+# === Запуск сессии ===
+async def run_session():
+    global session_running
+    try:
+        await send_telegram_message("🚀 Начинаю 2-минутную сессию живой торговли")
+        await connect_websocket(duration_seconds=120)
+        await send_telegram_message("⏹️ Сессия завершена. Нажмите /start для новой.")
+    except Exception as e:
+        await send_telegram_message(f"❌ Ошибка в сессии: {e}")
+    finally:
+        session_running = False
 
-            await send_telegram_message("✅ WebSocket сессия завершена.")
-        except Exception as e:
-            await send_telegram_message(f"❌ Ошибка WebSocket: {e}")
+# === Основной запуск ===
+async def main():
+    await dp.start_polling(bot)
 
-        await ws.close()
-        session_active = False
-
+if __name__ == "__main__":
+    signal.signal(signal.SIGTERM, handle_sigterm)
+    asyncio.run(main())
