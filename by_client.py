@@ -10,6 +10,9 @@ BASE_URL = "https://api.bybit.com"
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
+print(f"[DEBUG] API_KEY: {repr(API_KEY)}")
+print(f"[DEBUG] API_SECRET: {repr(API_SECRET)}")
+
 def generate_signature(params: dict) -> str:
     sorted_params = dict(sorted(params.items()))
     query_string = urlencode(sorted_params)
