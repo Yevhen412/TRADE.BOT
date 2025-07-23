@@ -1,4 +1,6 @@
 import asyncio
+import os
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from aiogram.types import Message
@@ -9,8 +11,6 @@ from aiogram import Router
 from websocket_client import connect_websocket
 from telegram_notifier import send_telegram_message
 
-import os
-
 BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
 bot = Bot(token=BOT_TOKEN, parse_mode=ParseMode.HTML)
@@ -18,7 +18,7 @@ dp = Dispatcher(storage=MemoryStorage())
 router = Router()
 dp.include_router(router)
 
-session_running = False  # Флаг контроля сессии
+session_running = False  # Флаг, чтобы избежать повторного запуска
 
 @router.message(CommandStart())
 async def start_command(message: Message):
