@@ -48,9 +48,12 @@ async def place_spot_order(symbol: str, qty: float):
         "qty": str(qty)
     }
 
+    json_body = json.dumps(body, separators=(",", ":"))
+    sign_payload = f"{timestamp}{API_KEY}{recv_window}{json_body}"
+    
     print(f"[DEBUG] body: {body}")
-
-    sign_payload = f"{timestamp}{API_KEY}{recv_window}{json.dumps(body, separators=(',', ':'))}"
+    print(f"[DEBUG] sign_payload: {sign_payload}")
+    
     signature = hmac.new(
         API_SECRET.encode("utf-8"),
         sign_payload.encode("utf-8"),
