@@ -3,6 +3,7 @@ import hmac
 import hashlib
 import aiohttp
 import os
+import json
 from urllib.parse import urlencode
 
 BASE_URL = "https://api.bybit.com"
