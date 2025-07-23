@@ -42,6 +42,7 @@ async def place_spot_order(symbol: str, qty: float):
     recv_window = "5000"
 
     body = {
+        "category": "spot",
         "symbol": symbol,
         "side": "Buy",
         "orderType": "Market",
