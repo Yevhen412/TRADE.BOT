@@ -29,7 +29,7 @@ async def get_current_price(symbol: str) -> float:
     except:
         return None
 
-async def place_spot_order(symbol: str, qty: float) -> bool:
+async def place_spot_order(symbol: str, qty: float):
     url = f"{BASE_URL}/v5/order/create"
     timestamp = str(int(time.time() * 1000))
 
@@ -43,17 +43,17 @@ async def place_spot_order(symbol: str, qty: float) -> bool:
     recv_window = "5000"
     sign_payload = f"{timestamp}{API_KEY}{recv_window}{json.dumps(body, separators=(',', ':'))}"
     signature = hmac.new(
-    API_SECRET.encode("utf-8"),
-    sign_payload.encode("utf-8"),
-    hashlib.sha256
-).hexdigest()
+        API_SECRET.encode("utf-8"),
+        sign_payload.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
 
-headers = {
-    "X-BAPI-API-KEY": API_KEY,
-    "X-BAPI-SIGN": signature,
-    "X-BAPI-TIMESTAMP": timestamp,
-    "X-BAPI-RECV-WINDOW": recv_window,
-    "Content-Type": "application/json"
+    headers = {
+        "X-BAPI-API-KEY": API_KEY,
+        "X-BAPI-SIGN": signature,
+        "X-BAPI-TIMESTAMP": timestamp,
+        "X-BAPI-RECV-WINDOW": recv_window,
+        "Content-Type": "application/json"
     }
 
     try:
