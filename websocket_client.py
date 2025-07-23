@@ -1,26 +1,16 @@
 import asyncio
-import os
 import json
 import time
-import hmac
-import hashlib
 import aiohttp
 import signal
-from urllib.parse import urlencode
-
 from telegram_notifier import send_telegram_message
 from by_client import place_spot_order, get_current_price
 
-__all__ = ["connect_websocket"]
-
-API_KEY = os.getenv("API_KEY")
-API_SECRET = os.getenv("API_SECRET")
-
 ORDER_QUANTITY = 200  # USDT
-TAKE_PROFIT_PERCENT = 0.0045  # 0.45%
-STOP_LOSS_PERCENT = 0.002  # 0.2%
-COMMISSION = 0.0028  # 0.28%
-TRADE_COOLDOWN = 5  # интервал между сделками
+TAKE_PROFIT_PERCENT = 0.0045
+STOP_LOSS_PERCENT = 0.002
+COMMISSION = 0.0028
+TRADE_COOLDOWN = 5
 
 SYMBOL_GROUPS = [
     ("BTCUSDT", "ETHUSDT"),
@@ -31,26 +21,21 @@ SYMBOL_GROUPS = [
 last_prices = {}
 in_trade = False
 last_trade_time = 0
-session_active = True  # Флаг активности сессии
+session_active = True
 
 def handle_sigterm(*_):
     global session_active
     print("🛑 SIGTERM получен. Завершаем сессию...")
     session_active = False
 
-# Привязка обработчика сигнала
 signal.signal(signal.SIGTERM, handle_sigterm)
-
-def generate_signature(params: dict) -> str:
-    query_string = urlencode(params)
-    return hmac.new(API_SECRET.encode("utf-8"), query_string.encode("utf-8"), hashlib.sha256).hexdigest()
 
 async def connect_websocket(duration_seconds=120):
     global session_active, last_prices, in_trade, last_trade_time
 
     session_active = True
     url = "wss://stream.bybit.com/v5/public/spot"
-    pairs = [symbol for group in SYMBOL_GROUPS for symbol in group]
+    pairs = [s for group in SYMBOL_GROUPS for s in group]
     end_time = time.time() + duration_seconds
 
     async with aiohttp.ClientSession() as session:
@@ -81,7 +66,6 @@ async def process_event(event):
     if event.get("topic", "").startswith("tickers."):
         symbol = event["topic"].split(".")[1]
         price = float(event["data"]["lastPrice"])
-        print(f"[TICK] {symbol}: {price}")
         last_prices[symbol] = price
 
         for sym1, sym2 in SYMBOL_GROUPS:
@@ -100,11 +84,7 @@ async def process_event(event):
 
                     take_profit = entry_price * (1 + TAKE_PROFIT_PERCENT)
                     stop_loss = entry_price * (1 - STOP_LOSS_PERCENT)
-                    target_profit = ORDER_QUANTITY * TAKE_PROFIT_PERCENT
-                    target_loss = ORDER_QUANTITY * STOP_LOSS_PERCENT
-                    est_commission = ORDER_QUANTITY * COMMISSION
-
-                    net_profit = target_profit - est_commission
+                    net_profit = (ORDER_QUANTITY * TAKE_PROFIT_PERCENT) - (ORDER_QUANTITY * COMMISSION)
 
                     if net_profit >= 0.03:
                         success = await place_spot_order(leading, ORDER_QUANTITY)
