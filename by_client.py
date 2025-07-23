@@ -66,7 +66,7 @@ async def place_spot_order(symbol: str, qty: float):
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, json=body) as response:
+            async with session.post(url, headers=headers, data=json_body) as response:
                 data = await response.json()
                 print(f"[ORDER RESPONSE] {data}")
                 return data["retCode"] == 0
