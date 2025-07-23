@@ -32,31 +32,33 @@ async def place_spot_order(symbol: str, qty: float) -> bool:
     url = f"{BASE_URL}/v5/order/create"
     timestamp = str(int(time.time() * 1000))
 
-    params = {
+    body = {
         "symbol": symbol,
         "side": "Buy",
         "orderType": "Market",
-        "qty": qty,
-        "timestamp": timestamp,
-        "apiKey": API_KEY,
+        "qty": qty
     }
 
-    sign = generate_signature(params)
+    sign_payload = f"{timestamp}{API_KEY}{json.dumps(body)}"
+    signature = hmac.new(
+        API_SECRET.encode("utf-8"),
+        sign_payload.encode("utf-8"),
+        hashlib.sha256
+    ).hexdigest()
+
     headers = {
         "X-BYBIT-API-KEY": API_KEY,
-        "X-BYBIT-SIGN": sign,
+        "X-BYBIT-SIGN": signature,
         "X-BYBIT-TIMESTAMP": timestamp,
-        "Content-Type": "application/x-www-form-urlencoded"
+        "Content-Type": "application/json"
     }
-
-    encoded_params = urlencode(params)
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.post(url, data=encoded_params, headers=headers) as resp:
-                data = await resp.json()
+            async with session.post(url, headers=headers, json=body) as response:
+                data = await response.json()
                 print(f"[ORDER RESPONSE] {data}")
-                return data.get("retCode") == 0
+                return data["retCode"] == 0
     except Exception as e:
         print(f"[ERROR] place_spot_order: {e}")
         return False
