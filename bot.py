@@ -1,6 +1,6 @@
 import asyncio
 from telegram_notifier import send_telegram_message
-from connect_websocket import connect_websocket
+from websocket_client import connect_websocket
 
 active_session = False
 
