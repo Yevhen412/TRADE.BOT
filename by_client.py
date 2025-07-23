@@ -33,17 +33,23 @@ async def get_current_price(symbol: str) -> float:
         return None
 
 async def place_spot_order(symbol: str, qty: float):
+    if not symbol or not qty:
+        print(f"[ERROR] Некорректные параметры: symbol={symbol}, qty={qty}")
+        return False
+
     url = f"{BASE_URL}/v5/order/create"
     timestamp = str(int(time.time() * 1000))
+    recv_window = "5000"
 
     body = {
         "symbol": symbol,
         "side": "Buy",
         "orderType": "Market",
-        "qty": qty
+        "qty": str(qty)
     }
 
-    recv_window = "5000"
+    print(f"[DEBUG] body: {body}")
+
     sign_payload = f"{timestamp}{API_KEY}{recv_window}{json.dumps(body, separators=(',', ':'))}"
     signature = hmac.new(
         API_SECRET.encode("utf-8"),
