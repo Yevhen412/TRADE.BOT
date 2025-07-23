@@ -47,9 +47,10 @@ async def place_spot_order(symbol: str, qty: float) -> bool:
     ).hexdigest()
 
     headers = {
-        "X-BYBIT-API-KEY": API_KEY,
-        "X-BYBIT-SIGN": signature,
-        "X-BYBIT-TIMESTAMP": timestamp,
+        "X-BAPI-API-KEY": API_KEY,
+        "X-BAPI-SIGN": signature,
+        "X-BAPI-TIMESTAMP": timestamp,
+        "X-BAPI-RECV-WINDOW": "5000",
         "Content-Type": "application/json"
     }
 
