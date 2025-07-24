@@ -4,18 +4,16 @@ import hashlib
 import aiohttp
 import os
 import json
-from urllib.parse import urlencode
 
 BASE_URL = "https://api.bybit.com"
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
 
-def generate_signature(params: dict) -> str:
-    sorted_params = dict(sorted(params.items()))
-    query_string = urlencode(sorted_params)
+def sign_request(timestamp: str, recv_window: str, body: str) -> str:
+    payload = f"{timestamp}{API_KEY}{recv_window}{body}"
     return hmac.new(
         API_SECRET.encode("utf-8"),
-        query_string.encode("utf-8"),
+        payload.encode("utf-8"),
         hashlib.sha256
     ).hexdigest()
 
@@ -29,10 +27,10 @@ async def get_current_price(symbol: str) -> float:
     except:
         return None
 
-async def place_spot_order(symbol: str, qty: float):
+async def place_spot_order(symbol: str, qty: float, side: str = "Buy"):
     if not symbol or not qty:
         print(f"[ERROR] Некорректные параметры: symbol={symbol}, qty={qty}")
-        return False
+        return None
 
     url = f"{BASE_URL}/v5/order/create"
     timestamp = str(int(time.time() * 1000))
@@ -41,18 +39,13 @@ async def place_spot_order(symbol: str, qty: float):
     body = {
         "category": "spot",
         "symbol": symbol,
-        "side": "Buy",
+        "side": side,
         "orderType": "Market",
         "qty": str(qty)
     }
 
     json_body = json.dumps(body, separators=(",", ":"))
-    sign_payload = f"{timestamp}{API_KEY}{recv_window}{json_body}"
-    signature = hmac.new(
-    API_SECRET.encode("utf-8"),
-    sign_payload.encode("utf-8"),
-    hashlib.sha256
-).hexdigest()
+    signature = sign_request(timestamp, recv_window, json_body)
 
     headers = {
         "X-BAPI-API-KEY": API_KEY,
@@ -67,7 +60,16 @@ async def place_spot_order(symbol: str, qty: float):
             async with session.post(url, headers=headers, data=json_body) as response:
                 data = await response.json()
                 print(f"[ORDER RESPONSE] {data}")
-                return data["retCode"] == 0
+
+                if data.get("retCode") == 0:
+                    price = float(data["result"].get("avgPrice", 0))
+                    return {
+                        "symbol": symbol,
+                        "side": side,
+                        "price": price,
+                        "qty": qty
+                    }
+                return None
     except Exception as e:
         print(f"[ERROR] place_spot_order: {e}")
-        return False
+        return None
