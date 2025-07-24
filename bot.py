@@ -1,40 +1,32 @@
-import asyncio
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import Message
-from aiogram.utils import executor
+from aiogram import Bot, Dispatcher
+from aiogram.contrib.fsm_storage.memory import MemoryStorage
+from aiogram.types import ParseMode
+from dotenv import load_dotenv
+import logging
 import os
+import asyncio
 
-from websocket_client import connect_websocket
+# Загрузка переменных окружения
+load_dotenv()
 
-BOT_TOKEN = os.getenv("TELEGRAM_TOKEN")
-CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+API_TOKEN = os.getenv("TELEGRAM_TOKEN")
 
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot)
+# Настройка логирования
+logging.basicConfig(level=logging.INFO)
 
-active_session = False
+# Инициализация бота и диспетчера
+bot = Bot(token=API_TOKEN, parse_mode=ParseMode.HTML)
+storage = MemoryStorage()
+dp = Dispatcher(bot, storage=storage)
 
-@dp.message_handler(commands=["start"])
-async def handle_start(message: Message):
-    global active_session
+# Импортируем обработчики (где будет команда /start и остальная логика)
+from handlers import register_handlers
+register_handlers(dp)
 
-    if str(message.chat.id) != str(CHAT_ID):
-        await message.answer("⛔️ Доступ запрещён.")
-        return
-
-    if active_session:
-        await message.answer("⚠️ Сессия уже активна.")
-        return
-
-    active_session = True
-    await message.answer("🚀 Запуск сессии...")
-    try:
-        await connect_websocket(duration_seconds=120)
-    except Exception as e:
-        await message.answer(f"[ERROR] {e}")
-    finally:
-        active_session = False
-        await message.answer("🛑 Сессия завершена.")
+async def main():
+    print("✅ Bot is ready. Waiting for /start command.")
+    # Не запускаем polling, чтобы бот не стартовал самовольно
+    await asyncio.Event().wait()  # Просто ждёт, пока не получит сигнал
 
 if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
