@@ -19,8 +19,4 @@ async def main():
         active_session = False
         print("🛑 Сессия завершена.")
 
-if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except KeyboardInterrupt:
-        print("⛔ Остановка вручную.")
+pass
